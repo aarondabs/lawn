@@ -2,6 +2,14 @@
 
 Initial scaffold for a public app repository with local-only server secrets.
 
+## Decision docs
+
+- Architecture decisions for this repo: `docs/ARCHITECTURE.md`
+- Homelab integration requirements: `docs/PLATFORM_DEPS.md`
+- Planned delivery phases: `docs/ROADMAP.md`
+
+The original cross-repo handoff remains in the homelab repository as platform history. This repo keeps an app-focused summary so contributors do not need access to private infrastructure docs.
+
 ## Security-first workflow
 
 - Keep real secrets only in local files on the server.

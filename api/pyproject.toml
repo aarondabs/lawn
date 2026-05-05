@@ -1,0 +1,10 @@
+[project]
+name = "lawn-api"
+version = "0.1.0"
+description = "Lawn backend API"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
