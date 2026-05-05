@@ -1,0 +1,515 @@
+"""
+SQLAlchemy models for the Lawn Command Center.
+
+Convention notes:
+- Non-hypertable tables: UUID primary key (gen_random_uuid() server-side).
+- Hypertable exceptions (see DATA_MODEL.md): weather_observation and
+  irrigation_event use composite primary keys because TimescaleDB requires
+  the partitioning column to be part of the primary key.
+- Enum-like text columns use Postgres CHECK constraints (not native ENUM types)
+  mirrored by pydantic Literals sourced from constants.py.
+- All timestamps are UTC (timestamptz).
+"""
+
+import uuid
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    Computed,
+    Date,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
+from sqlalchemy.orm import relationship
+
+from lawn_api.db import Base
+from lawn_api.models.constants import (
+    CULTURAL_PRACTICE_TYPES,
+    EQUIPMENT_TYPES,
+    IRRIGATION_EVENT_SOURCES,
+    IRRIGATION_HEAD_TYPES,
+    IRRIGATION_SLOPES,
+    IRRIGATION_SUN_EXPOSURES,
+    PRODUCT_TYPES,
+    PRODUCT_UNITS,
+    REMINDER_TYPES,
+    SOIL_TYPES,
+    TREATMENT_APPLICATORS,
+    WATER_SOURCES,
+)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _sql_in(values: tuple[str, ...]) -> str:
+    """Return a SQL IN-list string for a CHECK constraint."""
+    return ", ".join(f"'{v}'" for v in values)
+
+
+# ---------------------------------------------------------------------------
+# lawn_profile — singleton row representing Aaron's lawn
+# ---------------------------------------------------------------------------
+
+class LawnProfile(Base):
+    __tablename__ = "lawn_profile"
+    __table_args__ = (
+        UniqueConstraint("singleton_guard", name="lawn_profile_singleton"),
+        CheckConstraint(
+            f"soil_type IN ({_sql_in(SOIL_TYPES)})",
+            name="lawn_profile_soil_type_check",
+        ),
+        CheckConstraint(
+            f"water_source IN ({_sql_in(WATER_SOURCES)})",
+            name="lawn_profile_water_source_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    # Singleton enforcement: only one row can have singleton_guard = true
+    singleton_guard = Column(Boolean, nullable=False, server_default=text("true"))
+
+    total_sqft = Column(Integer, nullable=False)
+    grass_type = Column(Text, nullable=False, server_default="TTTF")
+    establishment_date = Column(Date, nullable=True)
+    target_mow_height_inches = Column(Numeric(3, 1), nullable=False)
+    latitude = Column(Numeric(8, 5), nullable=False)
+    longitude = Column(Numeric(9, 5), nullable=False)
+    usda_zone = Column(Text, nullable=False, server_default="6a")
+    climate_notes = Column(Text, nullable=True)
+    soil_type = Column(Text, nullable=False)
+    water_source = Column(Text, nullable=False)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# irrigation_zone
+# ---------------------------------------------------------------------------
+
+class IrrigationZone(Base):
+    __tablename__ = "irrigation_zone"
+    __table_args__ = (
+        UniqueConstraint("rachio_zone_id", name="irrigation_zone_rachio_id_uniq"),
+        UniqueConstraint("zone_number", name="irrigation_zone_zone_number_uniq"),
+        CheckConstraint(
+            f"head_type IN ({_sql_in(IRRIGATION_HEAD_TYPES)})",
+            name="irrigation_zone_head_type_check",
+        ),
+        CheckConstraint(
+            f"sun_exposure IN ({_sql_in(IRRIGATION_SUN_EXPOSURES)})",
+            name="irrigation_zone_sun_exposure_check",
+        ),
+        CheckConstraint(
+            f"slope IN ({_sql_in(IRRIGATION_SLOPES)})",
+            name="irrigation_zone_slope_check",
+        ),
+        CheckConstraint(
+            f"soil_type_override IS NULL OR soil_type_override IN ({_sql_in(SOIL_TYPES)})",
+            name="irrigation_zone_soil_type_override_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    rachio_zone_id = Column(Text, nullable=True)
+    zone_number = Column(Integer, nullable=False)
+    name = Column(Text, nullable=False)
+    sqft = Column(Integer, nullable=True)
+    head_type = Column(Text, nullable=False)
+    nozzle_gpm = Column(Numeric(5, 2), nullable=True)
+    precipitation_rate_in_per_hr = Column(Numeric(4, 2), nullable=True)
+    sun_exposure = Column(Text, nullable=False)
+    slope = Column(Text, nullable=False)
+    soil_type_override = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    irrigation_events = relationship("IrrigationEvent", back_populates="zone")
+
+
+# ---------------------------------------------------------------------------
+# equipment
+# ---------------------------------------------------------------------------
+
+class Equipment(Base):
+    __tablename__ = "equipment"
+    __table_args__ = (
+        CheckConstraint(
+            f"type IN ({_sql_in(EQUIPMENT_TYPES)})",
+            name="equipment_type_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    type = Column(Text, nullable=False)
+    make = Column(Text, nullable=False)
+    model = Column(Text, nullable=False)
+    calibration = Column(JSONB, nullable=True)
+    last_calibration_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    treatments = relationship("Treatment", back_populates="equipment")
+    cultural_practices = relationship("CulturalPractice", back_populates="equipment")
+
+
+# ---------------------------------------------------------------------------
+# product
+# ---------------------------------------------------------------------------
+
+class Product(Base):
+    __tablename__ = "product"
+    __table_args__ = (
+        CheckConstraint(
+            f"product_type IN ({_sql_in(PRODUCT_TYPES)})",
+            name="product_product_type_check",
+        ),
+        CheckConstraint(
+            f"label_rate_unit IN ({_sql_in(PRODUCT_UNITS)})",
+            name="product_label_rate_unit_check",
+        ),
+        CheckConstraint(
+            f"current_inventory_unit IS NULL OR current_inventory_unit IN ({_sql_in(PRODUCT_UNITS)})",
+            name="product_current_inventory_unit_check",
+        ),
+        CheckConstraint(
+            f"max_annual_rate_unit IS NULL OR max_annual_rate_unit IN ({_sql_in(PRODUCT_UNITS)})",
+            name="product_max_annual_rate_unit_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    name = Column(Text, nullable=False)
+    manufacturer = Column(Text, nullable=False)
+    product_type = Column(Text, nullable=False)
+    active_ingredients = Column(JSONB, nullable=True)
+    guaranteed_analysis = Column(JSONB, nullable=True)
+    label_rate = Column(Numeric, nullable=False)
+    label_rate_unit = Column(Text, nullable=False)
+    reentry_interval_hours = Column(Integer, nullable=True)
+    min_reapplication_days = Column(Integer, nullable=True)
+    max_annual_rate = Column(Numeric, nullable=True)
+    max_annual_rate_unit = Column(Text, nullable=True)
+    current_inventory = Column(Numeric, nullable=True)
+    current_inventory_unit = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    treatments = relationship("Treatment", back_populates="product")
+
+
+# ---------------------------------------------------------------------------
+# treatment
+# ---------------------------------------------------------------------------
+
+class Treatment(Base):
+    __tablename__ = "treatment"
+    __table_args__ = (
+        CheckConstraint(
+            f"rate_unit IN ({_sql_in(PRODUCT_UNITS)})",
+            name="treatment_rate_unit_check",
+        ),
+        CheckConstraint(
+            f"applicator IN ({_sql_in(TREATMENT_APPLICATORS)})",
+            name="treatment_applicator_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    applied_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("product.id"), nullable=False)
+    rate_applied = Column(Numeric, nullable=False)
+    rate_unit = Column(Text, nullable=False)
+    # total_amount is dropped — computed at API serialization time:
+    #   rate_applied × area_treated_sqft / 1000 (unit = rate_unit)
+    area_treated_sqft = Column(Integer, nullable=False)
+    equipment_id = Column(UUID(as_uuid=True), ForeignKey("equipment.id"), nullable=True)
+    applicator = Column(Text, nullable=False)
+    weather_temp_f = Column(Numeric, nullable=True)
+    weather_wind_mph = Column(Numeric, nullable=True)
+    weather_conditions = Column(Text, nullable=True)
+    target = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    product = relationship("Product", back_populates="treatments")
+    equipment = relationship("Equipment", back_populates="treatments")
+    reminders = relationship(
+        "Reminder",
+        foreign_keys="Reminder.completed_treatment_id",
+        back_populates="completed_treatment",
+    )
+
+
+# ---------------------------------------------------------------------------
+# cultural_practice
+# ---------------------------------------------------------------------------
+
+class CulturalPractice(Base):
+    __tablename__ = "cultural_practice"
+    __table_args__ = (
+        CheckConstraint(
+            f"practice_type IN ({_sql_in(CULTURAL_PRACTICE_TYPES)})",
+            name="cultural_practice_practice_type_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    performed_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    practice_type = Column(Text, nullable=False)
+    details = Column(JSONB, nullable=True)
+    equipment_id = Column(UUID(as_uuid=True), ForeignKey("equipment.id"), nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    equipment = relationship("Equipment", back_populates="cultural_practices")
+    reminders = relationship(
+        "Reminder",
+        foreign_keys="Reminder.completed_cultural_id",
+        back_populates="completed_cultural",
+    )
+
+
+# ---------------------------------------------------------------------------
+# soil_test
+# ---------------------------------------------------------------------------
+
+class SoilTest(Base):
+    __tablename__ = "soil_test"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    sample_date = Column(Date, nullable=False)
+    lab_name = Column(Text, nullable=False)
+    ph = Column(Numeric(3, 1), nullable=True)
+    organic_matter_pct = Column(Numeric(4, 1), nullable=True)
+    phosphorus_ppm = Column(Numeric, nullable=True)
+    potassium_ppm = Column(Numeric, nullable=True)
+    calcium_ppm = Column(Numeric, nullable=True)
+    magnesium_ppm = Column(Numeric, nullable=True)
+    sulfur_ppm = Column(Numeric, nullable=True)
+    iron_ppm = Column(Numeric, nullable=True)
+    manganese_ppm = Column(Numeric, nullable=True)
+    zinc_ppm = Column(Numeric, nullable=True)
+    copper_ppm = Column(Numeric, nullable=True)
+    boron_ppm = Column(Numeric, nullable=True)
+    cec = Column(Numeric, nullable=True)
+    base_saturation = Column(JSONB, nullable=True)
+    lab_recommendations = Column(Text, nullable=True)
+    pdf_path = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# weather_forecast
+# ---------------------------------------------------------------------------
+
+class WeatherForecast(Base):
+    __tablename__ = "weather_forecast"
+    __table_args__ = (
+        # Uniqueness is enforced on the derived calendar day (in Central Time)
+        # rather than the raw timestamptz.  See DATA_MODEL.md — Forecast overwrite.
+        UniqueConstraint("forecast_for_day", "source", name="weather_forecast_day_source_uniq"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    forecast_for = Column(TIMESTAMP(timezone=True), nullable=False)
+    # Hardcoded to America/Chicago — lawn is in Topeka, KS.
+    # If multi-location support is ever added, move this to per-row
+    # computation or denormalize the timezone onto lawn_profile.
+    forecast_for_day = Column(
+        Date,
+        Computed(
+            "(forecast_for AT TIME ZONE 'America/Chicago')::date",
+            persisted=True,
+        ),
+        nullable=False,
+    )
+    fetched_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    source = Column(Text, nullable=False)
+    temp_high_f = Column(Numeric, nullable=True)
+    temp_low_f = Column(Numeric, nullable=True)
+    precip_probability_pct = Column(Numeric, nullable=True)
+    precip_amount_in = Column(Numeric, nullable=True)
+    wind_mph = Column(Numeric, nullable=True)
+    conditions = Column(Text, nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# reminder
+# ---------------------------------------------------------------------------
+
+class Reminder(Base):
+    __tablename__ = "reminder"
+    __table_args__ = (
+        CheckConstraint(
+            f"reminder_type IN ({_sql_in(REMINDER_TYPES)})",
+            name="reminder_reminder_type_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    due_date = Column(Date, nullable=False)
+    reminder_type = Column(Text, nullable=False)
+    description = Column(Text, nullable=False)
+    completed = Column(Boolean, nullable=False, server_default=text("false"))
+    completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    completed_treatment_id = Column(
+        UUID(as_uuid=True), ForeignKey("treatment.id"), nullable=True
+    )
+    completed_cultural_id = Column(
+        UUID(as_uuid=True), ForeignKey("cultural_practice.id"), nullable=True
+    )
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    completed_treatment = relationship(
+        "Treatment",
+        foreign_keys=[completed_treatment_id],
+        back_populates="reminders",
+    )
+    completed_cultural = relationship(
+        "CulturalPractice",
+        foreign_keys=[completed_cultural_id],
+        back_populates="reminders",
+    )
+
+
+# ---------------------------------------------------------------------------
+# weather_observation — TimescaleDB hypertable exception
+# PK: (observed_at, source).  No UUID.
+# Partitioning column: observed_at.
+# ---------------------------------------------------------------------------
+
+class WeatherObservation(Base):
+    __tablename__ = "weather_observation"
+    # source is open-ended by design (openmeteo, personal weather station, etc.)
+    # Validated by pydantic at the API edge; no DB CHECK constraint.
+
+    observed_at = Column(TIMESTAMP(timezone=True), primary_key=True, nullable=False)
+    source = Column(Text, primary_key=True, nullable=False)
+    temp_f = Column(Numeric, nullable=True)
+    humidity_pct = Column(Numeric, nullable=True)
+    dew_point_f = Column(Numeric, nullable=True)
+    wind_mph = Column(Numeric, nullable=True)
+    wind_gust_mph = Column(Numeric, nullable=True)
+    precip_in = Column(Numeric, nullable=True)
+    soil_temp_f = Column(Numeric, nullable=True)
+    et0_in = Column(Numeric, nullable=True)
+    gdd_base50 = Column(Numeric, nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# irrigation_event — TimescaleDB hypertable exception
+# PK: (started_at, zone_id).  No UUID.
+# Partitioning column: started_at.
+# ---------------------------------------------------------------------------
+
+class IrrigationEvent(Base):
+    __tablename__ = "irrigation_event"
+    __table_args__ = (
+        # Partial unique index: rachio_event_id uniqueness enforced only when
+        # non-null.  Manual events have NULL and are not deduplicated this way.
+        Index(
+            "irrigation_event_rachio_event_id_uniq",
+            "rachio_event_id",
+            unique=True,
+            postgresql_where=text("rachio_event_id IS NOT NULL"),
+        ),
+        CheckConstraint(
+            f"source IN ({_sql_in(IRRIGATION_EVENT_SOURCES)})",
+            name="irrigation_event_source_check",
+        ),
+    )
+
+    started_at = Column(TIMESTAMP(timezone=True), primary_key=True, nullable=False)
+    zone_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("irrigation_zone.id"),
+        primary_key=True,
+        nullable=False,
+    )
+    rachio_event_id = Column(Text, nullable=True)
+    duration_seconds = Column(Integer, nullable=False)
+    # Snapshot the zone's precip rate at insert time so historical inches_applied
+    # reflects the calibration in effect then, not the current calibration.
+    precip_rate_in_per_hr_snapshot = Column(Numeric(4, 2), nullable=False)
+    # Generated from local columns only — Postgres generated columns can't
+    # reference other tables, hence the snapshot pattern above.
+    inches_applied = Column(
+        Numeric(6, 3),
+        Computed(
+            "duration_seconds / 3600.0 * precip_rate_in_per_hr_snapshot",
+            persisted=True,
+        ),
+        nullable=False,
+    )
+    source = Column(Text, nullable=False)
+    skipped = Column(Boolean, nullable=False, server_default=text("false"))
+    skip_reason = Column(Text, nullable=True)
+
+    zone = relationship("IrrigationZone", back_populates="irrigation_events")

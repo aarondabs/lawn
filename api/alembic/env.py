@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from lawn_api.config import settings
 from lawn_api.db import Base
+import lawn_api.models  # noqa: F401 — registers all model metadata with Base
 
 # Alembic Config object, providing access to .ini values
 config = context.config
