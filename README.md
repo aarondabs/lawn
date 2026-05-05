@@ -32,6 +32,23 @@ The original cross-repo handoff remains in the homelab repository as platform hi
 3. Build the app and run locally.
 4. Commit only non-sensitive source and docs.
 
+## Compose foundation
+
+- `docker-compose.yml` is the main runtime file.
+- `docker-compose.dev.yml` is the development overlay.
+- Main compose does not publish Lawn web on host port 3000.
+- Dev overlay publishes web on host 3001 to avoid host port conflicts.
+
+### Bring up dev stack
+
+1. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build`
+2. API health: `http://localhost:8000/health`
+3. Web app: `http://localhost:3001`
+
+### Bring down
+
+1. `docker compose -f docker-compose.yml -f docker-compose.dev.yml down`
+
 ## Publishing this repository
 
 1. Create a new public repo on GitHub.

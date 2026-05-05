@@ -3,7 +3,23 @@ name = "lawn-api"
 version = "0.1.0"
 description = "Lawn backend API"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "sqlalchemy",
+  "alembic",
+  "psycopg[binary]",
+  "pydantic-settings",
+  "httpx",
+  "apscheduler",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "pytest",
+  "pytest-asyncio",
+]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
