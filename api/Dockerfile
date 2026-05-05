@@ -6,7 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]" sqlalchemy alembic "psycopg[binary]" pydantic-settings httpx apscheduler
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir -e .
 
 COPY src ./src
 COPY tests ./tests

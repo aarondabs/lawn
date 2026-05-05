@@ -11,6 +11,8 @@ services:
     volumes:
       - /opt/apps/lawn/api/src:/app/src
       - /opt/apps/lawn/api/tests:/app/tests
+      - /opt/apps/lawn/api/alembic:/app/alembic
+      - /opt/apps/lawn/api/alembic.ini:/app/alembic.ini
     ports:
       - "8000:8000"
 
