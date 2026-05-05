@@ -474,9 +474,13 @@ class IrrigationEvent(Base):
     __table_args__ = (
         # Partial unique index: rachio_event_id uniqueness enforced only when
         # non-null.  Manual events have NULL and are not deduplicated this way.
+        # TimescaleDB requires all unique indexes to include the partitioning column.
+        # (rachio_event_id, started_at) is still an effective deduplication key because
+        # a given Rachio event always has the same start time.
         Index(
             "irrigation_event_rachio_event_id_uniq",
             "rachio_event_id",
+            "started_at",
             unique=True,
             postgresql_where=text("rachio_event_id IS NOT NULL"),
         ),

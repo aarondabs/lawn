@@ -76,16 +76,19 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["zone_id"], ["irrigation_zone.id"]),
         sa.PrimaryKeyConstraint("started_at", "zone_id"),
     )
+    # TimescaleDB requires all unique indexes to include the partitioning column.
+    # (rachio_event_id, started_at) is still an effective deduplication key because
+    # a given Rachio event always has the same start time.
     op.create_index(
         "irrigation_event_rachio_event_id_uniq",
         "irrigation_event",
-        ["rachio_event_id"],
+        ["rachio_event_id", "started_at"],
         unique=True,
         postgresql_where=sa.text("rachio_event_id IS NOT NULL"),
     )
 
 
 def downgrade() -> None:
-    op.drop_index("irrigation_event_rachio_event_id_uniq", table_name="irrigation_event")
+    op.drop_index("irrigation_event_rachio_event_id_uniq", table_name="irrigation_event", if_exists=True)
     op.drop_table("irrigation_event")
     op.drop_table("weather_observation")

@@ -104,7 +104,7 @@ def downgrade() -> None:
     op.create_index(
         "irrigation_event_rachio_event_id_uniq",
         "irrigation_event",
-        ["rachio_event_id"],
+        ["rachio_event_id", "started_at"],
         unique=True,
         postgresql_where=sa.text("rachio_event_id IS NOT NULL"),
     )
