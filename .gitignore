@@ -1,0 +1,44 @@
+# --- Secrets and local environment ---
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.secrets
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Local-only operations/deploy files
+secrets/
+ops/private/
+docker-compose.override.yml
+compose.override.yml
+
+# Local runtime data
+data/
+logs/
+tmp/
+
+# Language/tool outputs (safe defaults)
+node_modules/
+dist/
+build/
+.next/
+coverage/
+.pytest_cache/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Editor and OS files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
