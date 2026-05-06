@@ -35,6 +35,7 @@ coverage/
 venv/
 __pycache__/
 *.pyc
+*.egg-info/
 
 # Editor and OS files
 .vscode/*
