@@ -384,3 +384,94 @@ async def test_refresh_weather_endpoint_falls_back_to_topeka_coords(
     assert response.status_code == 200
     assert seen["latitude"] == 39.0473
     assert seen["longitude"] == -95.6752
+
+
+@pytest.mark.asyncio
+async def test_rachio_connect_upserts_zones(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("lawn_api.services.rachio.settings.rachio_api_key", "test-key")
+
+    async def fake_person_info(_: str) -> dict[str, Any]:
+        return {
+            "id": "person-1",
+            "devices": [
+                {
+                    "zones": [
+                        {
+                            "id": "zone-ext-1",
+                            "zoneNumber": 1,
+                            "name": "Front",
+                            "areaSqFt": 2500,
+                            "zoneType": "rotor",
+                            "nozzleInchesPerHour": 0.6,
+                            "gpm": 2.1,
+                            "sunlightExposure": "full sun",
+                            "slope": "flat",
+                            "soilType": "loam",
+                        }
+                    ]
+                }
+            ],
+        }
+
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_info", fake_person_info)
+
+    connected = await client.post("/api/v1/rachio/connect")
+    assert connected.status_code == 200
+    assert connected.json()["zones_created"] == 1
+
+    zones = await client.get("/api/v1/irrigation-zones")
+    assert zones.status_code == 200
+    assert len(zones.json()) == 1
+    assert zones.json()[0]["rachio_zone_id"] == "zone-ext-1"
+
+
+@pytest.mark.asyncio
+async def test_rachio_poll_inserts_events(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("lawn_api.services.rachio.settings.rachio_api_key", "test-key")
+
+    await client.post(
+        "/api/v1/irrigation-zones",
+        json={
+            "zone_number": 1,
+            "name": "Front Lawn",
+            "head_type": "rotor",
+            "sun_exposure": "full_sun",
+            "slope": "flat",
+            "rachio_zone_id": "zone-ext-1",
+            "precipitation_rate_in_per_hr": 0.55,
+        },
+    )
+
+    async def fake_person_info(_: str) -> dict[str, Any]:
+        return {"id": "person-1", "devices": []}
+
+    async def fake_events(*_: Any, **__: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "event-1",
+                "zoneId": "zone-ext-1",
+                "eventDate": "2026-05-06T10:00:00+00:00",
+                "duration": 1200,
+                "source": "rachio",
+                "skipped": False,
+            }
+        ]
+
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_info", fake_person_info)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_recent_events", fake_events)
+
+    polled = await client.post("/api/v1/admin/poll-rachio")
+    assert polled.status_code == 200
+    assert polled.json()["events_inserted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_rachio_webhook_accepts_payload(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/webhooks/rachio",
+        json={"event": "ZONE_COMPLETED", "zoneId": "zone-ext-1"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "accepted"

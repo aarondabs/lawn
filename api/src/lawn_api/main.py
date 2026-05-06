@@ -14,9 +14,11 @@ from lawn_api.routers import (
     irrigation_zone_router,
     lawn_profile_router,
     product_router,
+    rachio_router,
     soil_test_router,
     treatment_router,
 )
+from lawn_api.services.rachio import poll_rachio_events, should_schedule_rachio_polling
 from lawn_api.services.weather import refresh_weather
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,13 @@ async def lifespan(_: FastAPI):
         except Exception:
             logger.exception("Scheduled weather refresh failed")
 
+    async def scheduled_rachio_poll() -> None:
+        try:
+            async with AsyncSessionLocal() as session:
+                await poll_rachio_events(session)
+        except Exception:
+            logger.exception("Scheduled Rachio polling failed")
+
     scheduler.add_job(
         scheduled_weather_refresh,
         trigger="interval",
@@ -42,6 +51,19 @@ async def lifespan(_: FastAPI):
         coalesce=True,
         max_instances=1,
     )
+
+    async with AsyncSessionLocal() as session:
+        if await should_schedule_rachio_polling(session):
+            scheduler.add_job(
+                scheduled_rachio_poll,
+                trigger="interval",
+                hours=1,
+                id="rachio-poll",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+
     scheduler.start()
     try:
         yield
@@ -51,6 +73,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Lawn API", lifespan=lifespan)
 
 app.include_router(admin_router)
+app.include_router(rachio_router)
 app.include_router(lawn_profile_router)
 app.include_router(irrigation_zone_router)
 app.include_router(equipment_router)

@@ -49,6 +49,14 @@ The original cross-repo handoff remains in the homelab repository as platform hi
 
 1. `docker compose -f docker-compose.yml -f docker-compose.dev.yml down`
 
+### Reload env changes
+
+When you update `.env`, a plain container restart is not enough. Recreate the container so new environment values are injected.
+
+1. `./ops/reload-env.sh`
+2. Optional full stack recreate: `./ops/reload-env.sh all`
+3. Optional specific services: `./ops/reload-env.sh api web`
+
 ## Publishing this repository
 
 1. Create a new public repo on GitHub.

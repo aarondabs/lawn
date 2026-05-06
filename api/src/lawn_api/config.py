@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     database_url: str
+    rachio_api_key: str | None = None
 
 
 settings = Settings()
