@@ -1,9 +1,14 @@
+import logging
+from contextlib import asynccontextmanager
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lawn_api.db import AsyncSessionLocal
 from lawn_api.routers import (
+    admin_router,
     cultural_practice_router,
     equipment_router,
     irrigation_zone_router,
@@ -12,9 +17,40 @@ from lawn_api.routers import (
     soil_test_router,
     treatment_router,
 )
+from lawn_api.services.weather import refresh_weather
 
-app = FastAPI(title="Lawn API")
+logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    scheduler = AsyncIOScheduler(timezone="UTC")
+
+    async def scheduled_weather_refresh() -> None:
+        try:
+            async with AsyncSessionLocal() as session:
+                await refresh_weather(session)
+        except Exception:
+            logger.exception("Scheduled weather refresh failed")
+
+    scheduler.add_job(
+        scheduled_weather_refresh,
+        trigger="interval",
+        hours=6,
+        id="weather-refresh",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.start()
+    try:
+        yield
+    finally:
+        scheduler.shutdown(wait=False)
+
+app = FastAPI(title="Lawn API", lifespan=lifespan)
+
+app.include_router(admin_router)
 app.include_router(lawn_profile_router)
 app.include_router(irrigation_zone_router)
 app.include_router(equipment_router)

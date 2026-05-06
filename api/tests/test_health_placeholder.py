@@ -1,12 +1,14 @@
 from datetime import date, datetime, timezone
+from typing import Any
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 
 from lawn_api.db import AsyncSessionLocal
 from lawn_api.main import app
+from lawn_api.models.entities import WeatherForecast, WeatherObservation
 
 
 @pytest_asyncio.fixture
@@ -263,3 +265,122 @@ async def test_soil_test_crud_flow(client: AsyncClient) -> None:
 
     deleted = await client.delete(f"/api/v1/soil-tests/{soil_test_id}")
     assert deleted.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_refresh_weather_endpoint_uses_profile_coords_and_persists(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await client.post(
+        "/api/v1/lawn-profile",
+        json={
+            "total_sqft": 5000,
+            "target_mow_height_inches": 3.5,
+            "latitude": 40.11111,
+            "longitude": -94.22222,
+            "soil_type": "loam",
+            "water_source": "city",
+        },
+    )
+
+    called: dict[str, float] = {}
+
+    async def fake_fetch_openmeteo_weather(latitude: float, longitude: float) -> dict[str, Any]:
+        called["latitude"] = latitude
+        called["longitude"] = longitude
+        return {
+            "current": {
+                "time": "2026-05-06T12:00",
+                "temperature_2m": 72.0,
+                "relative_humidity_2m": 50,
+                "dew_point_2m": 52.0,
+                "wind_speed_10m": 8.0,
+                "wind_gusts_10m": 12.0,
+                "precipitation": 0.0,
+            },
+            "hourly": {
+                "time": ["2026-05-06T12:00"],
+                "soil_temperature_0cm": [66.0],
+                "et0_fao_evapotranspiration": [0.1],
+            },
+            "daily": {
+                "time": [
+                    "2026-05-06",
+                    "2026-05-07",
+                ],
+                "temperature_2m_max": [78.0, 80.0],
+                "temperature_2m_min": [60.0, 61.0],
+                "precipitation_probability_max": [10, 20],
+                "precipitation_sum": [0.0, 0.1],
+                "wind_speed_10m_max": [12.0, 13.0],
+                "weather_code": [1, 3],
+            },
+        }
+
+    monkeypatch.setattr(
+        "lawn_api.services.weather.fetch_openmeteo_weather",
+        fake_fetch_openmeteo_weather,
+    )
+
+    response = await client.post("/api/v1/admin/refresh-weather")
+    assert response.status_code == 200
+    assert called["latitude"] == 40.11111
+    assert called["longitude"] == -94.22222
+    assert response.json()["forecast_rows_stored"] == 2
+
+    async with AsyncSessionLocal() as db:
+        observation_count = (
+            await db.execute(select(func.count()).select_from(WeatherObservation))
+        ).scalar_one()
+        forecast_count = (
+            await db.execute(select(func.count()).select_from(WeatherForecast))
+        ).scalar_one()
+
+    assert observation_count == 1
+    assert forecast_count == 2
+
+
+@pytest.mark.asyncio
+async def test_refresh_weather_endpoint_falls_back_to_topeka_coords(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, float] = {}
+
+    async def fake_fetch_openmeteo_weather(latitude: float, longitude: float) -> dict[str, Any]:
+        seen["latitude"] = latitude
+        seen["longitude"] = longitude
+        return {
+            "current": {
+                "time": "2026-05-06T12:00",
+                "temperature_2m": 70.0,
+                "relative_humidity_2m": 40,
+                "dew_point_2m": 45.0,
+                "wind_speed_10m": 7.0,
+                "wind_gusts_10m": 11.0,
+                "precipitation": 0.0,
+            },
+            "hourly": {
+                "time": ["2026-05-06T12:00"],
+                "soil_temperature_0cm": [64.0],
+                "et0_fao_evapotranspiration": [0.09],
+            },
+            "daily": {
+                "time": ["2026-05-06"],
+                "temperature_2m_max": [75.0],
+                "temperature_2m_min": [58.0],
+                "precipitation_probability_max": [5],
+                "precipitation_sum": [0.0],
+                "wind_speed_10m_max": [10.0],
+                "weather_code": [0],
+            },
+        }
+
+    monkeypatch.setattr(
+        "lawn_api.services.weather.fetch_openmeteo_weather",
+        fake_fetch_openmeteo_weather,
+    )
+
+    response = await client.post("/api/v1/admin/refresh-weather")
+    assert response.status_code == 200
+    assert seen["latitude"] == 39.0473
+    assert seen["longitude"] == -95.6752
