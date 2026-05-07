@@ -5,10 +5,11 @@ import {
   createIrrigationZone,
   patchIrrigationZone,
   deleteIrrigationZone,
+  type IrrigationZoneInput,
   type IrrigationZone,
 } from "@/lib/api";
 
-type ZoneInput = Omit<IrrigationZone, "id" | "created_at" | "updated_at">;
+type ZoneInput = IrrigationZoneInput;
 
 export async function addIrrigationZone(
   data: ZoneInput,

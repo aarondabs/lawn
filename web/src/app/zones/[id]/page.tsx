@@ -61,6 +61,7 @@ export default async function ZoneDetailPage({ params }: { params: Promise<{ id:
           <CardHeader><CardTitle className="text-base">Integration</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <DetailRow label="Rachio zone ID" value={zone.rachio_zone_id} />
+            <DetailRow label="Zone category" value={zone.zone_category.replace(/_/g, " ")} />
             <DetailRow label="Soil type override" value={zone.soil_type_override?.replace(/_/g, " ")} />
             {zone.rachio_zone_id && <Badge variant="secondary">Rachio connected</Badge>}
           </CardContent>

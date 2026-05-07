@@ -9,9 +9,13 @@ WORKDIR /app
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir -e .
 
+COPY alembic.ini ./
+COPY alembic ./alembic
 COPY src ./src
 COPY tests ./tests
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["uvicorn", "lawn_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/docker-entrypoint.sh"]

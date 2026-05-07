@@ -60,7 +60,7 @@ export default async function TreatmentsPage() {
               <TableRow key={t.id}>
                 <TableCell>{formatDate(t.applied_at)}</TableCell>
                 <TableCell className="font-medium">
-                  {productMap[t.product_id]?.name ?? t.product_id.slice(0, 8)}
+                  {productMap[t.product_id]?.name ?? "Unknown product"}
                 </TableCell>
                 <TableCell>{t.rate_applied} {t.rate_unit}</TableCell>
                 <TableCell>{t.area_treated_sqft.toLocaleString()}</TableCell>

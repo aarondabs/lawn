@@ -11,14 +11,16 @@ async def fetch_openmeteo_weather(latitude: float, longitude: float) -> dict[str
         "latitude": latitude,
         "longitude": longitude,
         "timezone": "UTC",
+        "past_days": 7,
         "forecast_days": 10,
         "current": (
             "temperature_2m,relative_humidity_2m,dew_point_2m,"
             "wind_speed_10m,wind_gusts_10m,precipitation"
         ),
-        "hourly": "time,soil_temperature_0cm,et0_fao_evapotranspiration",
+        # Open-Meteo returns `time` implicitly; don't include it in the variable list.
+        "hourly": "precipitation,soil_temperature_0cm,evapotranspiration",
         "daily": (
-            "time,temperature_2m_max,temperature_2m_min,precipitation_sum,"
+            "temperature_2m_max,temperature_2m_min,precipitation_sum,"
             "precipitation_probability_max,wind_speed_10m_max,weather_code"
         ),
         "temperature_unit": "fahrenheit",

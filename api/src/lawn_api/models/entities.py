@@ -38,6 +38,7 @@ from lawn_api.models.constants import (
     EQUIPMENT_TYPES,
     IRRIGATION_EVENT_SOURCES,
     IRRIGATION_HEAD_TYPES,
+    IRRIGATION_ZONE_CATEGORIES,
     IRRIGATION_SLOPES,
     IRRIGATION_SUN_EXPOSURES,
     PRODUCT_TYPES,
@@ -124,10 +125,16 @@ class IrrigationZone(Base):
             f"soil_type_override IS NULL OR soil_type_override IN ({_sql_in(SOIL_TYPES)})",
             name="irrigation_zone_soil_type_override_check",
         ),
+        CheckConstraint(
+            f"zone_category IN ({_sql_in(IRRIGATION_ZONE_CATEGORIES)})",
+            name="irrigation_zone_zone_category_check",
+        ),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     rachio_zone_id = Column(Text, nullable=True)
+    is_enabled = Column(Boolean, nullable=False, server_default=text("true"))
+    zone_category = Column(Text, nullable=False, server_default=text("'turf'"))
     zone_number = Column(Integer, nullable=False)
     name = Column(Text, nullable=False)
     sqft = Column(Integer, nullable=True)

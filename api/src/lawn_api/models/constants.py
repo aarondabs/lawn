@@ -13,6 +13,12 @@ WATER_SOURCES = ("city", "well", "mixed")
 IRRIGATION_HEAD_TYPES = ("rotor", "spray", "mp_rotator", "drip", "hybrid")
 IRRIGATION_SUN_EXPOSURES = ("full_sun", "partial_sun", "partial_shade", "full_shade")
 IRRIGATION_SLOPES = ("flat", "mild", "moderate", "steep")
+IRRIGATION_ZONE_CATEGORIES = (
+    "turf",
+    "trees_shrubs",
+    "ornamental",
+    "inactive",
+)
 
 EQUIPMENT_TYPES = ("sprayer", "spreader", "aerator", "dethatcher", "mower", "edger", "other")
 

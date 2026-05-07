@@ -16,6 +16,7 @@ import { toLocalDatetimeInputValue } from "@/lib/datetime";
 import type { CulturalPractice, Equipment } from "@/lib/api";
 
 const PRACTICE_TYPES = ["mow", "aerate", "dethatch", "overseed", "scalp", "leveling", "edge", "other"] as const;
+const NO_EQUIPMENT_VALUE = "__none__";
 
 const schema = z.object({
   performed_at: z.string().min(1),
@@ -75,6 +76,8 @@ export function CulturalPracticeForm({ practice, equipment, initialPracticeType,
     }
   }
 
+  const selectedEquipment = equipment.find((e) => e.id === form.watch("equipment_id"));
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -101,11 +104,23 @@ export function CulturalPracticeForm({ practice, equipment, initialPracticeType,
           <FormField control={form.control} name="equipment_id" render={({ field }) => (
             <FormItem>
               <FormLabel>Equipment</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl><SelectTrigger><SelectValue placeholder="None" /></SelectTrigger></FormControl>
-                <SelectContent>
+              <Select
+                value={field.value || NO_EQUIPMENT_VALUE}
+                onValueChange={(value) => field.onChange(value === NO_EQUIPMENT_VALUE ? "" : value)}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="None">
+                      {selectedEquipment ? `${selectedEquipment.make} ${selectedEquipment.model}` : "None"}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="min-w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value={NO_EQUIPMENT_VALUE}>None</SelectItem>
                   {equipment.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>{e.make} {e.model}</SelectItem>
+                    <SelectItem key={e.id} value={e.id} className="max-w-[32rem] truncate">
+                      {e.make} {e.model}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

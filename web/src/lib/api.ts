@@ -79,6 +79,8 @@ export type LawnProfile = {
 export type IrrigationZone = {
   id: string;
   rachio_zone_id: string | null;
+  is_enabled: boolean;
+  zone_category: "turf" | "trees_shrubs" | "ornamental" | "inactive";
   zone_number: number;
   name: string;
   sqft: number | null;
@@ -91,6 +93,10 @@ export type IrrigationZone = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type IrrigationZoneInput = Omit<IrrigationZone, "id" | "created_at" | "updated_at" | "is_enabled"> & {
+  is_enabled?: boolean;
 };
 
 export type Equipment = {
@@ -179,6 +185,88 @@ export type SoilTest = {
   updated_at: string;
 };
 
+export type DashboardSummary = {
+  weather: {
+    current: {
+      observed_at: string | null;
+      temp_f: number | null;
+      humidity_pct: number | null;
+      wind_mph: number | null;
+      precip_in: number | null;
+    };
+    today_forecast: {
+      date: string | null;
+      temp_high_f: number | null;
+      temp_low_f: number | null;
+      precip_probability_pct: number | null;
+      precip_amount_in: number | null;
+      conditions: string | null;
+    };
+    next_7_days: Array<{
+      date: string;
+      temp_high_f: number | null;
+      temp_low_f: number | null;
+      precip_probability_pct: number | null;
+      precip_amount_in: number | null;
+      wind_mph: number | null;
+      conditions: string | null;
+    }>;
+    forecast_rainfall_7d_in: number;
+    rainfall_7d_in: number;
+  };
+  irrigation: {
+    total_water_7d_in: number;
+    turf_avg_7d_in: number;
+    all_zones_total_7d_in: number;
+    zones_with_events_7d: number;
+    excluded_zone_numbers: number[];
+    calibration_note: string;
+    zones: Array<{
+      zone_id: string;
+      zone_number: number;
+      zone_name: string;
+      sqft: number | null;
+      inches: number;
+      zone_category: "turf" | "trees_shrubs" | "ornamental" | "inactive";
+      included_in_turf_budget: boolean;
+    }>;
+  };
+  last_treatment: {
+    id: string;
+    applied_at: string;
+    product_id: string;
+    product_name: string;
+    rate_applied: number | null;
+    rate_unit: string;
+    days_ago: number;
+  } | null;
+  last_cultural_by_type: Array<{
+    id: string;
+    practice_type: string;
+    performed_at: string;
+    days_ago: number;
+  }>;
+  last_soil_test: {
+    id: string;
+    sample_date: string;
+    ph: number | null;
+    organic_matter_pct: number | null;
+    phosphorus_ppm: number | null;
+    potassium_ppm: number | null;
+    cec: number | null;
+  } | null;
+  active_reminders: Array<{
+    id: string;
+    due_date: string;
+    reminder_type: string;
+    description: string;
+  }>;
+  quick_actions: Array<{
+    label: string;
+    href: string;
+  }>;
+};
+
 // ─── Lawn Profile ─────────────────────────────────────────────────────────────
 
 export async function getLawnProfile() {
@@ -195,19 +283,20 @@ export async function patchLawnProfile(body: Partial<Omit<LawnProfile, "id" | "c
 
 // ─── Irrigation Zones ─────────────────────────────────────────────────────────
 
-export async function listIrrigationZones() {
-  return apiRequest<IrrigationZone[]>("/api/v1/irrigation-zones");
+export async function listIrrigationZones(options?: { includeDisabled?: boolean }) {
+  const includeDisabled = options?.includeDisabled ? "?include_disabled=true" : "";
+  return apiRequest<IrrigationZone[]>(`/api/v1/irrigation-zones${includeDisabled}`);
 }
 
 export async function getIrrigationZone(id: string) {
   return apiRequest<IrrigationZone>(`/api/v1/irrigation-zones/${id}`);
 }
 
-export async function createIrrigationZone(body: Omit<IrrigationZone, "id" | "created_at" | "updated_at">) {
+export async function createIrrigationZone(body: IrrigationZoneInput) {
   return apiRequest<IrrigationZone>("/api/v1/irrigation-zones", { method: "POST", body });
 }
 
-export async function patchIrrigationZone(id: string, body: Partial<Omit<IrrigationZone, "id" | "created_at" | "updated_at">>) {
+export async function patchIrrigationZone(id: string, body: Partial<IrrigationZoneInput>) {
   return apiRequest<IrrigationZone>(`/api/v1/irrigation-zones/${id}`, { method: "PATCH", body });
 }
 
@@ -323,4 +412,10 @@ export async function patchSoilTest(id: string, body: Partial<Omit<SoilTest, "id
 
 export async function deleteSoilTest(id: string) {
   return apiRequest<void>(`/api/v1/soil-tests/${id}`, { method: "DELETE" });
+}
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+
+export async function getDashboardSummary() {
+  return apiRequest<DashboardSummary>("/api/v1/dashboard/summary");
 }

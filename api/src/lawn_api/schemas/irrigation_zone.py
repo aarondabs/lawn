@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from lawn_api.models.constants import (
     IRRIGATION_HEAD_TYPES,
+    IRRIGATION_ZONE_CATEGORIES,
     IRRIGATION_SLOPES,
     IRRIGATION_SUN_EXPOSURES,
     SOIL_TYPES,
@@ -14,6 +15,8 @@ from lawn_api.models.constants import (
 
 class IrrigationZoneCreate(BaseModel):
     rachio_zone_id: str | None = None
+    is_enabled: bool = True
+    zone_category: Literal[*IRRIGATION_ZONE_CATEGORIES] = "turf"
     zone_number: int
     name: str
     sqft: int | None = None
@@ -28,6 +31,8 @@ class IrrigationZoneCreate(BaseModel):
 
 class IrrigationZonePatch(BaseModel):
     rachio_zone_id: str | None = None
+    is_enabled: bool | None = None
+    zone_category: Literal[*IRRIGATION_ZONE_CATEGORIES] | None = None
     zone_number: int | None = None
     name: str | None = None
     sqft: int | None = None
@@ -45,6 +50,8 @@ class IrrigationZoneOut(BaseModel):
 
     id: UUID
     rachio_zone_id: str | None
+    is_enabled: bool
+    zone_category: str
     zone_number: int
     name: str
     sqft: int | None

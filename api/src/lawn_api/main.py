@@ -10,6 +10,7 @@ from lawn_api.db import AsyncSessionLocal
 from lawn_api.routers import (
     admin_router,
     cultural_practice_router,
+    dashboard_router,
     equipment_router,
     irrigation_zone_router,
     lawn_profile_router,
@@ -73,6 +74,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Lawn API", lifespan=lifespan)
 
 app.include_router(admin_router)
+app.include_router(dashboard_router)
 app.include_router(rachio_router)
 app.include_router(lawn_profile_router)
 app.include_router(irrigation_zone_router)

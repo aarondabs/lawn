@@ -54,7 +54,12 @@ export default async function CulturalPage() {
                 <TableCell>{formatDate(p.performed_at)}</TableCell>
                 <TableCell><Badge variant="secondary">{p.practice_type}</Badge></TableCell>
                 <TableCell>
-                  {p.equipment_id ? equipment.find((e) => e.id === p.equipment_id)?.model ?? "–" : "–"}
+                  {p.equipment_id
+                    ? (() => {
+                        const e = equipment.find((item) => item.id === p.equipment_id);
+                        return e ? `${e.make} ${e.model}` : "–";
+                      })()
+                    : "–"}
                 </TableCell>
                 <TableCell>
                   <Button asChild variant="ghost" size="sm">

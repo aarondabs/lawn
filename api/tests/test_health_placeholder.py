@@ -466,9 +466,62 @@ async def test_rachio_poll_inserts_events(client: AsyncClient, monkeypatch: pyte
     monkeypatch.setattr("lawn_api.services.rachio.fetch_person_details", fake_person_details)
     monkeypatch.setattr("lawn_api.services.rachio.fetch_recent_events", fake_events)
 
-    polled = await client.post("/api/v1/admin/poll-rachio")
+    polled = await client.post("/api/v1/admin/poll-rachio?lookback_hours=168")
     assert polled.status_code == 200
     assert polled.json()["events_inserted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_rachio_poll_parses_summary_zone_events(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("lawn_api.services.rachio.settings.rachio_api_key", "test-key")
+
+    await client.post(
+        "/api/v1/irrigation-zones",
+        json={
+            "zone_number": 13,
+            "name": "Back Corner",
+            "head_type": "rotor",
+            "sun_exposure": "full_sun",
+            "slope": "flat",
+            "rachio_zone_id": "zone-ext-13",
+            "precipitation_rate_in_per_hr": 0.6,
+        },
+    )
+
+    async def fake_person_info(_: str) -> dict[str, Any]:
+        return {"id": "person-1", "devices": []}
+
+    async def fake_person_details(_: str, __: str) -> dict[str, Any]:
+        return {"devices": [{"id": "device-1"}]}
+
+    async def fake_events(*_: Any, **__: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "event-zone-completed-1",
+                "type": "ZONE_STATUS",
+                "subType": "ZONE_COMPLETED",
+                "summary": "Zone 13 completed watering at 10:11 AM (CDT) for 16 minutes.",
+                "eventDate": 1777821076000,
+            }
+        ]
+
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_info", fake_person_info)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_details", fake_person_details)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_recent_events", fake_events)
+
+    polled = await client.post("/api/v1/admin/poll-rachio?lookback_hours=168")
+    assert polled.status_code == 200
+    assert polled.json()["events_inserted"] == 1
+
+    summary = await client.get("/api/v1/dashboard/summary")
+    assert summary.status_code == 200
+    payload = summary.json()
+    assert payload["irrigation"]["zones"]
+    assert payload["irrigation"]["zones"][0]["zone_name"] == "Back Corner"
+    assert payload["irrigation"]["zones"][0]["inches"] > 0
 
 
 @pytest.mark.asyncio

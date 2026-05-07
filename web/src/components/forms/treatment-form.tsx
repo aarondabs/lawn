@@ -17,6 +17,7 @@ import type { Treatment, Product, Equipment } from "@/lib/api";
 
 const UNITS = ["lb", "oz", "fl_oz", "gal"] as const;
 const APPLICATORS = ["self", "spouse", "lawn_service", "other"] as const;
+const NO_EQUIPMENT_VALUE = "__none__";
 
 const schema = z.object({
   applied_at: z.string().min(1),
@@ -101,6 +102,9 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
     }
   }
 
+  const selectedProduct = products.find((p) => p.id === form.watch("product_id"));
+  const selectedEquipment = equipment.find((e) => e.id === form.watch("equipment_id"));
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -115,11 +119,17 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
           <FormField control={form.control} name="product_id" render={({ field }) => (
             <FormItem>
               <FormLabel>Product</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger></FormControl>
-                <SelectContent>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select product">
+                      {selectedProduct ? selectedProduct.name : "Select product"}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="min-w-[var(--radix-select-trigger-width)]">
                   {products.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id} className="max-w-[32rem] truncate">{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -157,11 +167,21 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
           <FormField control={form.control} name="equipment_id" render={({ field }) => (
             <FormItem>
               <FormLabel>Equipment</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl><SelectTrigger><SelectValue placeholder="None" /></SelectTrigger></FormControl>
-                <SelectContent>
+              <Select
+                value={field.value || NO_EQUIPMENT_VALUE}
+                onValueChange={(value) => field.onChange(value === NO_EQUIPMENT_VALUE ? "" : value)}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="None">
+                      {selectedEquipment ? `${selectedEquipment.make} ${selectedEquipment.model}` : "None"}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent className="min-w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value={NO_EQUIPMENT_VALUE}>None</SelectItem>
                   {equipment.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>{e.make} {e.model}</SelectItem>
+                    <SelectItem key={e.id} value={e.id} className="max-w-[32rem] truncate">{e.make} {e.model}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

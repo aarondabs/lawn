@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { saveLawnProfile } from "@/app/actions/lawn-profile";
+import { refreshWeatherNow, saveLawnProfile } from "@/app/actions/lawn-profile";
 import type { LawnProfile } from "@/lib/api";
 
 const SOIL_TYPES = ["sand", "sandy_loam", "loam", "silty_loam", "silty_clay_loam", "clay_loam", "clay"] as const;
@@ -38,6 +39,7 @@ type Props = {
 
 export function LawnProfileForm({ defaultValues }: Props) {
   const router = useRouter();
+  const [isRefreshingWeather, setIsRefreshingWeather] = useState(false);
 
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,6 +78,20 @@ export function LawnProfileForm({ defaultValues }: Props) {
     }
 
     toast.success("Lawn profile saved.");
+    router.refresh();
+  }
+
+  async function onRefreshWeatherClick() {
+    setIsRefreshingWeather(true);
+    const result = await refreshWeatherNow();
+    setIsRefreshingWeather(false);
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    toast.success("Weather refreshed.");
     router.refresh();
   }
 
@@ -208,9 +224,19 @@ export function LawnProfileForm({ defaultValues }: Props) {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? "Saving…" : "Save profile"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? "Saving…" : "Save profile"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onRefreshWeatherClick}
+            disabled={isRefreshingWeather}
+          >
+            {isRefreshingWeather ? "Refreshing weather…" : "Refresh weather now"}
+          </Button>
+        </div>
       </form>
     </Form>
   );

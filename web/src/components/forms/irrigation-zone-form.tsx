@@ -18,11 +18,13 @@ const HEAD_TYPES = ["rotor", "spray", "mp_rotator", "drip", "hybrid"] as const;
 const SUN_EXPOSURES = ["full_sun", "partial_sun", "partial_shade", "full_shade"] as const;
 const SLOPES = ["flat", "mild", "moderate", "steep"] as const;
 const SOIL_TYPES = ["sand", "sandy_loam", "loam", "silty_loam", "silty_clay_loam", "clay_loam", "clay"] as const;
+const ZONE_CATEGORIES = ["turf", "trees_shrubs", "ornamental", "inactive"] as const;
 
 const schema = z.object({
   zone_number: z.coerce.number().int().positive(),
   name: z.string().min(1),
   rachio_zone_id: z.string().optional(),
+  zone_category: z.enum(ZONE_CATEGORIES),
   sqft: z.coerce.number().int().positive().optional(),
   head_type: z.enum(HEAD_TYPES),
   nozzle_gpm: z.coerce.number().positive().optional(),
@@ -50,6 +52,7 @@ export function IrrigationZoneForm({ zone, onSuccess }: Props) {
       zone_number: zone?.zone_number ?? undefined,
       name: zone?.name ?? "",
       rachio_zone_id: zone?.rachio_zone_id ?? "",
+      zone_category: zone?.zone_category ?? "turf",
       sqft: zone?.sqft ?? undefined,
       head_type: (zone?.head_type as typeof HEAD_TYPES[number]) ?? "rotor",
       nozzle_gpm: zone?.nozzle_gpm ?? undefined,
@@ -66,6 +69,7 @@ export function IrrigationZoneForm({ zone, onSuccess }: Props) {
       zone_number: values.zone_number,
       name: values.name,
       rachio_zone_id: values.rachio_zone_id || null,
+      zone_category: values.zone_category,
       sqft: values.sqft ?? null,
       head_type: values.head_type,
       nozzle_gpm: values.nozzle_gpm ?? null,
@@ -109,6 +113,18 @@ export function IrrigationZoneForm({ zone, onSuccess }: Props) {
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl><Input {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="zone_category" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Zone category</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                <SelectContent>
+                  {ZONE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c.replace(/_/g, " ")}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )} />

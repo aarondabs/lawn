@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,8 +16,14 @@ router = APIRouter(prefix="/api/v1/irrigation-zones", tags=["irrigation-zones"])
 
 
 @router.get("", response_model=list[IrrigationZoneOut])
-async def list_irrigation_zones(db: AsyncSession = Depends(get_db)) -> list[IrrigationZoneOut]:
-    rows = (await db.execute(select(IrrigationZone).order_by(IrrigationZone.zone_number))).scalars()
+async def list_irrigation_zones(
+    include_disabled: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+) -> list[IrrigationZoneOut]:
+    stmt = select(IrrigationZone)
+    if not include_disabled:
+        stmt = stmt.where(IrrigationZone.is_enabled.is_(True))
+    rows = (await db.execute(stmt.order_by(IrrigationZone.zone_number))).scalars()
     return list(rows)
 
 

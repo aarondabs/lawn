@@ -1,5 +1,7 @@
 import logging
+import re
 from datetime import UTC, datetime
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -50,9 +52,39 @@ SOIL_TYPE_MAP = {
     "clay": "clay",
 }
 
+SOIL_TYPE_MAP_V2 = {
+    "sand": "sand",
+    "sandy_loam": "sandy_loam",
+    "loam": "loam",
+    "silty_loam": "silty_loam",
+    "silty_clay_loam": "silty_clay_loam",
+    "clay_loam": "clay_loam",
+    "clay": "clay",
+}
+
+SLOPE_MAP_V2 = {
+    "zero_three": "flat",
+    "three_six": "mild",
+    "six_twelve": "moderate",
+    "thirteen_plus": "steep",
+}
+
+SUN_EXPOSURE_MAP_V2 = {
+    "lots_of_sun": "full_sun",
+    "some_shade": "partial_sun",
+    "mostly_shade": "partial_shade",
+    "all_shade": "full_shade",
+}
+
 
 class RachioConfigError(RuntimeError):
     pass
+
+
+ZONE_COMPLETED_SUMMARY_RE = re.compile(
+    r"zone\s+(?P<zone_number>\d+)\s+completed\s+watering.*?for\s+(?P<minutes>\d+)\s+minute",
+    re.IGNORECASE,
+)
 
 
 def _require_api_key() -> str:
@@ -78,14 +110,85 @@ def _to_datetime(value: Any) -> datetime:
 
 
 def _zone_defaults(zone_payload: dict[str, Any]) -> dict[str, Any]:
+    custom_shade = zone_payload.get("customShade") or {}
+    custom_slope = zone_payload.get("customSlope") or {}
+    custom_soil = zone_payload.get("customSoil") or {}
     return {
         "head_type": HEAD_TYPE_MAP.get(_norm(zone_payload.get("zoneType")), "rotor"),
         "sun_exposure": SUN_EXPOSURE_MAP.get(
             _norm(zone_payload.get("sunlightExposure")), "full_sun"
-        ),
-        "slope": SLOPE_MAP.get(_norm(zone_payload.get("slope")), "flat"),
-        "soil_type_override": SOIL_TYPE_MAP.get(_norm(zone_payload.get("soilType"))),
+        )
+        if zone_payload.get("sunlightExposure")
+        else SUN_EXPOSURE_MAP_V2.get(_norm(custom_shade.get("name")), "full_sun"),
+        "slope": SLOPE_MAP.get(_norm(zone_payload.get("slope")), "flat")
+        if zone_payload.get("slope")
+        else SLOPE_MAP_V2.get(_norm(custom_slope.get("name")), "flat"),
+        "soil_type_override": SOIL_TYPE_MAP.get(_norm(zone_payload.get("soilType")))
+        if zone_payload.get("soilType")
+        else SOIL_TYPE_MAP_V2.get(_norm(custom_soil.get("name"))),
     }
+
+
+def _extract_precip_rate(zone_payload: dict[str, Any]) -> float | None:
+    legacy_rate = zone_payload.get("nozzleInchesPerHour")
+    if legacy_rate is not None:
+        return float(legacy_rate)
+
+    custom_nozzle = zone_payload.get("customNozzle") or {}
+    nozzle_rate = custom_nozzle.get("inchesPerHour")
+    if nozzle_rate is None:
+        return None
+
+    efficiency = zone_payload.get("efficiency")
+    if efficiency is None:
+        return float(nozzle_rate)
+    return float(nozzle_rate) * float(efficiency)
+
+
+def _extract_zone_sqft(zone_payload: dict[str, Any]) -> int | None:
+    if zone_payload.get("areaSqFt") is not None:
+        return int(zone_payload["areaSqFt"])
+    if zone_payload.get("yardAreaSquareFeet") is not None:
+        return int(zone_payload["yardAreaSquareFeet"])
+    return None
+
+
+def _derive_zone_category(zone_payload: dict[str, Any]) -> str:
+    if not bool(zone_payload.get("enabled", True)):
+        return "inactive"
+
+    crop_name = _norm((zone_payload.get("customCrop") or {}).get("name"))
+    if "tree" in crop_name or "shrub" in crop_name:
+        return "trees_shrubs"
+    if "flower" in crop_name or "ornamental" in crop_name or "bed" in crop_name:
+        return "ornamental"
+    return "turf"
+
+
+def _extract_zone_and_duration_from_summary(summary: Any) -> tuple[int | None, int | None]:
+    if not isinstance(summary, str) or not summary:
+        return None, None
+    match = ZONE_COMPLETED_SUMMARY_RE.search(summary)
+    if not match:
+        return None, None
+    zone_number = int(match.group("zone_number"))
+    duration_seconds = int(match.group("minutes")) * 60
+    return zone_number, duration_seconds
+
+
+def _normalize_event_source(event: dict[str, Any]) -> str:
+    raw_source = _norm(event.get("source"))
+    subtype = _norm(event.get("subType"))
+    summary = _norm(event.get("summary"))
+
+    # Keep source values compatible with existing DB CHECK constraint.
+    if raw_source in {"manual"} or "manual" in subtype:
+        return "manual"
+    if raw_source in {"calculated"}:
+        return "calculated"
+    if "quick run" in summary:
+        return "rachio"
+    return "rachio"
 
 
 async def sync_rachio_zones(db: AsyncSession) -> dict[str, Any]:
@@ -115,13 +218,16 @@ async def sync_rachio_zones(db: AsyncSession) -> dict[str, Any]:
             ).scalar_one_or_none()
 
             defaults = _zone_defaults(zone)
-            incoming_precip = zone.get("nozzleInchesPerHour")
+            incoming_precip = _extract_precip_rate(zone)
+            incoming_category = _derive_zone_category(zone)
 
             payload = {
                 "rachio_zone_id": rachio_zone_id,
+                "is_enabled": bool(zone.get("enabled", True)),
+                "zone_category": incoming_category,
                 "zone_number": int(zone.get("zoneNumber") or 0),
                 "name": zone.get("name") or f"Zone {zone.get('zoneNumber', '?')}",
-                "sqft": int(zone["areaSqFt"]) if zone.get("areaSqFt") is not None else None,
+                "sqft": _extract_zone_sqft(zone),
                 "head_type": defaults["head_type"],
                 "nozzle_gpm": zone.get("gpm"),
                 "sun_exposure": defaults["sun_exposure"],
@@ -138,6 +244,12 @@ async def sync_rachio_zones(db: AsyncSession) -> dict[str, Any]:
 
             for key, value in payload.items():
                 setattr(existing, key, value)
+
+            # Preserve manual non-turf overrides when Rachio metadata says turf.
+            if existing.zone_category not in {"turf", "inactive"} and incoming_category == "turf":
+                existing.zone_category = existing.zone_category
+            else:
+                existing.zone_category = incoming_category
 
             # Preserve local precip calibration if it is already set.
             if existing.precipitation_rate_in_per_hr is None:
@@ -196,21 +308,36 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
 
     for event in events:
         zone_external_id = event.get("zoneId")
-        if not zone_external_id:
-            continue
+        summary_zone_number, summary_duration_seconds = _extract_zone_and_duration_from_summary(
+            event.get("summary")
+        )
 
-        zone = (
-            await db.execute(
-                select(IrrigationZone).where(IrrigationZone.rachio_zone_id == zone_external_id)
-            )
-        ).scalar_one_or_none()
+        zone = None
+        if zone_external_id:
+            zone = (
+                await db.execute(
+                    select(IrrigationZone).where(
+                        IrrigationZone.rachio_zone_id == zone_external_id,
+                        IrrigationZone.is_enabled.is_(True),
+                    )
+                )
+            ).scalar_one_or_none()
+        elif summary_zone_number is not None:
+            zone = (
+                await db.execute(
+                    select(IrrigationZone).where(
+                        IrrigationZone.zone_number == summary_zone_number,
+                        IrrigationZone.is_enabled.is_(True),
+                    )
+                )
+            ).scalar_one_or_none()
+
         if zone is None:
             continue
 
-        source = _norm(event.get("source") or RACHIO_SOURCE)
-        source = source if source in {"rachio", "manual", "calculated"} else RACHIO_SOURCE
+        source = _normalize_event_source(event)
 
-        started_at = _to_datetime(event.get("eventDate") or event.get("createdDate"))
+        event_at = _to_datetime(event.get("eventDate") or event.get("createdDate"))
         rachio_event_id = event.get("id")
 
         already_exists = False
@@ -225,7 +352,20 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
         if already_exists:
             continue
 
-        duration_seconds = int(event.get("duration") or event.get("durationSeconds") or 0)
+        duration_seconds = int(
+            event.get("duration")
+            or event.get("durationSeconds")
+            or summary_duration_seconds
+            or 0
+        )
+        if duration_seconds <= 0:
+            continue
+
+        started_at = event_at
+        if summary_duration_seconds:
+            # Summary events provide completion timestamp; convert to a start timestamp.
+            started_at = event_at - timedelta(seconds=duration_seconds)
+
         precip_snapshot = Decimal(str(zone.precipitation_rate_in_per_hr or 0))
 
         db.add(
@@ -253,17 +393,7 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
     }
 
 
-async def should_schedule_rachio_polling(db: AsyncSession) -> bool:
+async def should_schedule_rachio_polling(_db: AsyncSession) -> bool:
     if not settings.rachio_api_key:
-        return False
-
-    has_zones = (
-        await db.execute(select(exists().where(IrrigationZone.rachio_zone_id.is_not(None))))
-    ).scalar_one()
-    if not has_zones:
-        logger.warning(
-            "RACHIO_API_KEY is configured but no Rachio zones are connected yet. "
-            "Run /api/v1/rachio/connect first; polling not scheduled."
-        )
         return False
     return True

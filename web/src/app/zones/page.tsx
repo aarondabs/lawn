@@ -41,6 +41,7 @@ export default async function ZonesPage() {
               <TableHead className="w-12">#</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Head type</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Sun</TableHead>
               <TableHead>Slope</TableHead>
               <TableHead className="text-right">Sq ft</TableHead>
@@ -51,7 +52,7 @@ export default async function ZonesPage() {
           <TableBody>
             {zones.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   No zones yet. Add one or run Rachio Connect from the API.
                 </TableCell>
               </TableRow>
@@ -61,6 +62,7 @@ export default async function ZonesPage() {
                 <TableCell className="font-mono">{z.zone_number}</TableCell>
                 <TableCell className="font-medium">{z.name}</TableCell>
                 <TableCell>{z.head_type.replace(/_/g, " ")}</TableCell>
+                <TableCell>{z.zone_category.replace(/_/g, " ")}</TableCell>
                 <TableCell>{z.sun_exposure.replace(/_/g, " ")}</TableCell>
                 <TableCell>{z.slope}</TableCell>
                 <TableCell className="text-right">{z.sqft ?? "–"}</TableCell>
@@ -89,7 +91,7 @@ export default async function ZonesPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{z.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Zone {z.zone_number} · {z.head_type.replace(/_/g, " ")} · {z.sun_exposure.replace(/_/g, " ")}
+                    Zone {z.zone_number} · {z.zone_category.replace(/_/g, " ")} · {z.head_type.replace(/_/g, " ")}
                   </p>
                 </div>
                 {z.rachio_zone_id && (
