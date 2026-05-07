@@ -57,3 +57,270 @@ export async function apiRequest<TResponse, TBody = unknown>(
 export async function getHealth() {
   return apiRequest<{ status: string; db?: string }>("/health", { method: "GET" });
 }
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type LawnProfile = {
+  id: string;
+  total_sqft: number;
+  grass_type: string;
+  establishment_date: string | null;
+  target_mow_height_inches: number;
+  latitude: number;
+  longitude: number;
+  usda_zone: string;
+  climate_notes: string | null;
+  soil_type: string;
+  water_source: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type IrrigationZone = {
+  id: string;
+  rachio_zone_id: string | null;
+  zone_number: number;
+  name: string;
+  sqft: number | null;
+  head_type: string;
+  nozzle_gpm: number | null;
+  precipitation_rate_in_per_hr: number | null;
+  sun_exposure: string;
+  slope: string;
+  soil_type_override: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Equipment = {
+  id: string;
+  type: string;
+  make: string;
+  model: string;
+  calibration: Record<string, unknown> | null;
+  last_calibration_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Product = {
+  id: string;
+  name: string;
+  manufacturer: string;
+  product_type: string;
+  active_ingredients: Record<string, unknown> | null;
+  guaranteed_analysis: Record<string, unknown> | null;
+  label_rate: number;
+  label_rate_unit: string;
+  reentry_interval_hours: number | null;
+  min_reapplication_days: number | null;
+  max_annual_rate: number | null;
+  max_annual_rate_unit: string | null;
+  current_inventory: number | null;
+  current_inventory_unit: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Treatment = {
+  id: string;
+  applied_at: string;
+  product_id: string;
+  rate_applied: number;
+  rate_unit: string;
+  area_treated_sqft: number;
+  equipment_id: string | null;
+  applicator: string;
+  weather_temp_f: number | null;
+  weather_wind_mph: number | null;
+  weather_conditions: string | null;
+  target: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CulturalPractice = {
+  id: string;
+  performed_at: string;
+  practice_type: string;
+  details: Record<string, unknown> | null;
+  equipment_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SoilTest = {
+  id: string;
+  sample_date: string;
+  lab_name: string;
+  ph: number | null;
+  organic_matter_pct: number | null;
+  phosphorus_ppm: number | null;
+  potassium_ppm: number | null;
+  calcium_ppm: number | null;
+  magnesium_ppm: number | null;
+  sulfur_ppm: number | null;
+  iron_ppm: number | null;
+  manganese_ppm: number | null;
+  zinc_ppm: number | null;
+  copper_ppm: number | null;
+  boron_ppm: number | null;
+  cec: number | null;
+  base_saturation: Record<string, unknown> | null;
+  lab_recommendations: string | null;
+  pdf_path: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// ─── Lawn Profile ─────────────────────────────────────────────────────────────
+
+export async function getLawnProfile() {
+  return apiRequest<LawnProfile>("/api/v1/lawn-profile");
+}
+
+export async function upsertLawnProfile(body: Omit<LawnProfile, "id" | "created_at" | "updated_at">) {
+  return apiRequest<LawnProfile>("/api/v1/lawn-profile", { method: "POST", body });
+}
+
+export async function patchLawnProfile(body: Partial<Omit<LawnProfile, "id" | "created_at" | "updated_at">>) {
+  return apiRequest<LawnProfile>("/api/v1/lawn-profile", { method: "PATCH", body });
+}
+
+// ─── Irrigation Zones ─────────────────────────────────────────────────────────
+
+export async function listIrrigationZones() {
+  return apiRequest<IrrigationZone[]>("/api/v1/irrigation-zones");
+}
+
+export async function getIrrigationZone(id: string) {
+  return apiRequest<IrrigationZone>(`/api/v1/irrigation-zones/${id}`);
+}
+
+export async function createIrrigationZone(body: Omit<IrrigationZone, "id" | "created_at" | "updated_at">) {
+  return apiRequest<IrrigationZone>("/api/v1/irrigation-zones", { method: "POST", body });
+}
+
+export async function patchIrrigationZone(id: string, body: Partial<Omit<IrrigationZone, "id" | "created_at" | "updated_at">>) {
+  return apiRequest<IrrigationZone>(`/api/v1/irrigation-zones/${id}`, { method: "PATCH", body });
+}
+
+export async function deleteIrrigationZone(id: string) {
+  return apiRequest<void>(`/api/v1/irrigation-zones/${id}`, { method: "DELETE" });
+}
+
+// ─── Equipment ────────────────────────────────────────────────────────────────
+
+export async function listEquipment() {
+  return apiRequest<Equipment[]>("/api/v1/equipment");
+}
+
+export async function getEquipment(id: string) {
+  return apiRequest<Equipment>(`/api/v1/equipment/${id}`);
+}
+
+export async function createEquipment(body: Omit<Equipment, "id" | "created_at" | "updated_at">) {
+  return apiRequest<Equipment>("/api/v1/equipment", { method: "POST", body });
+}
+
+export async function patchEquipment(id: string, body: Partial<Omit<Equipment, "id" | "created_at" | "updated_at">>) {
+  return apiRequest<Equipment>(`/api/v1/equipment/${id}`, { method: "PATCH", body });
+}
+
+export async function deleteEquipment(id: string) {
+  return apiRequest<void>(`/api/v1/equipment/${id}`, { method: "DELETE" });
+}
+
+// ─── Products ─────────────────────────────────────────────────────────────────
+
+export async function listProducts() {
+  return apiRequest<Product[]>("/api/v1/products");
+}
+
+export async function getProduct(id: string) {
+  return apiRequest<Product>(`/api/v1/products/${id}`);
+}
+
+export async function createProduct(body: Omit<Product, "id" | "created_at" | "updated_at">) {
+  return apiRequest<Product>("/api/v1/products", { method: "POST", body });
+}
+
+export async function patchProduct(id: string, body: Partial<Omit<Product, "id" | "created_at" | "updated_at">>) {
+  return apiRequest<Product>(`/api/v1/products/${id}`, { method: "PATCH", body });
+}
+
+export async function deleteProduct(id: string) {
+  return apiRequest<void>(`/api/v1/products/${id}`, { method: "DELETE" });
+}
+
+// ─── Treatments ───────────────────────────────────────────────────────────────
+
+export async function listTreatments() {
+  return apiRequest<Treatment[]>("/api/v1/treatments");
+}
+
+export async function getTreatment(id: string) {
+  return apiRequest<Treatment>(`/api/v1/treatments/${id}`);
+}
+
+export async function createTreatment(body: Omit<Treatment, "id" | "created_at" | "updated_at">) {
+  return apiRequest<Treatment>("/api/v1/treatments", { method: "POST", body });
+}
+
+export async function patchTreatment(id: string, body: Partial<Omit<Treatment, "id" | "created_at" | "updated_at">>) {
+  return apiRequest<Treatment>(`/api/v1/treatments/${id}`, { method: "PATCH", body });
+}
+
+export async function deleteTreatment(id: string) {
+  return apiRequest<void>(`/api/v1/treatments/${id}`, { method: "DELETE" });
+}
+
+// ─── Cultural Practices ───────────────────────────────────────────────────────
+
+export async function listCulturalPractices() {
+  return apiRequest<CulturalPractice[]>("/api/v1/cultural-practices");
+}
+
+export async function getCulturalPractice(id: string) {
+  return apiRequest<CulturalPractice>(`/api/v1/cultural-practices/${id}`);
+}
+
+export async function createCulturalPractice(body: Omit<CulturalPractice, "id" | "created_at" | "updated_at">) {
+  return apiRequest<CulturalPractice>("/api/v1/cultural-practices", { method: "POST", body });
+}
+
+export async function patchCulturalPractice(id: string, body: Partial<Omit<CulturalPractice, "id" | "created_at" | "updated_at">>) {
+  return apiRequest<CulturalPractice>(`/api/v1/cultural-practices/${id}`, { method: "PATCH", body });
+}
+
+export async function deleteCulturalPractice(id: string) {
+  return apiRequest<void>(`/api/v1/cultural-practices/${id}`, { method: "DELETE" });
+}
+
+// ─── Soil Tests ───────────────────────────────────────────────────────────────
+
+export async function listSoilTests() {
+  return apiRequest<SoilTest[]>("/api/v1/soil-tests");
+}
+
+export async function getSoilTest(id: string) {
+  return apiRequest<SoilTest>(`/api/v1/soil-tests/${id}`);
+}
+
+export async function createSoilTest(body: Omit<SoilTest, "id" | "created_at" | "updated_at">) {
+  return apiRequest<SoilTest>("/api/v1/soil-tests", { method: "POST", body });
+}
+
+export async function patchSoilTest(id: string, body: Partial<Omit<SoilTest, "id" | "created_at" | "updated_at">>) {
+  return apiRequest<SoilTest>(`/api/v1/soil-tests/${id}`, { method: "PATCH", body });
+}
+
+export async function deleteSoilTest(id: string) {
+  return apiRequest<void>(`/api/v1/soil-tests/${id}`, { method: "DELETE" });
+}

@@ -4,6 +4,8 @@ import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
+import { listProducts, listEquipment, listTreatments, getLawnProfile } from "@/lib/api";
+import type { QuickLogData } from "@/components/quick-log-fab";
 
 const geist = localFont({
   src: "./fonts/GeistVF.woff",
@@ -27,15 +29,32 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+async function fetchQuickLogData(): Promise<QuickLogData> {
+  const [products, equipment, treatments, profile] = await Promise.all([
+    listProducts().catch(() => []),
+    listEquipment().catch(() => []),
+    listTreatments().catch(() => []),
+    getLawnProfile().catch(() => null),
+  ]);
+  const sorted = [...treatments].sort((a, b) => b.applied_at.localeCompare(a.applied_at));
+  return {
+    products,
+    equipment,
+    lastTreatment: sorted[0] ?? null,
+    defaultSqft: profile?.total_sqft ?? null,
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const quickLogData = await fetchQuickLogData();
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className="antialiased">
-        <AppShell>{children}</AppShell>
+        <AppShell quickLogData={quickLogData}>{children}</AppShell>
         <Toaster richColors position="top-right" />
       </body>
     </html>
