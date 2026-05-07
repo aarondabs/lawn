@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { addCulturalPractice, updateCulturalPractice } from "@/app/actions/cultural-practice";
+import { toLocalDatetimeInputValue } from "@/lib/datetime";
 import type { CulturalPractice, Equipment } from "@/lib/api";
 
 const PRACTICE_TYPES = ["mow", "aerate", "dethatch", "overseed", "scalp", "leveling", "edge", "other"] as const;
@@ -25,26 +26,23 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function toLocalDatetimeString(iso: string) {
-  return iso.slice(0, 16); // "YYYY-MM-DDTHH:MM"
-}
-
 type Props = {
   practice?: CulturalPractice;
   equipment: Equipment[];
+  initialPracticeType?: (typeof PRACTICE_TYPES)[number];
   onSuccess?: () => void;
 };
 
-export function CulturalPracticeForm({ practice, equipment, onSuccess }: Props) {
+export function CulturalPracticeForm({ practice, equipment, initialPracticeType, onSuccess }: Props) {
   const router = useRouter();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       performed_at: practice
-        ? toLocalDatetimeString(practice.performed_at)
-        : toLocalDatetimeString(new Date().toISOString()),
-      practice_type: (practice?.practice_type as typeof PRACTICE_TYPES[number]) ?? "mow",
+        ? toLocalDatetimeInputValue(practice.performed_at)
+        : toLocalDatetimeInputValue(new Date()),
+      practice_type: (practice?.practice_type as typeof PRACTICE_TYPES[number]) ?? initialPracticeType ?? "mow",
       equipment_id: practice?.equipment_id ?? "",
       notes: practice?.notes ?? "",
     },

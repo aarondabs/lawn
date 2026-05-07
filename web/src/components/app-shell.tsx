@@ -6,6 +6,7 @@ import { FlaskConical, Home, Settings, Shovel, Sprout, TestTube, Tractor, Wrench
 
 import { cn } from "@/lib/utils";
 import { QuickLogFab } from "@/components/quick-log-fab";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -33,7 +34,10 @@ export function AppShell({ children }: AppShellProps) {
             <p className="text-sm font-semibold">Lawn Command Center</p>
             <p className="text-xs text-muted-foreground">Phase 1</p>
           </div>
-          <p className="text-xs text-muted-foreground">Topeka, KS</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">Topeka, KS</p>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

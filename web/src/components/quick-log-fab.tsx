@@ -1,22 +1,88 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CulturalPracticeForm } from "@/components/forms/cultural-practice-form";
+import { EquipmentForm } from "@/components/forms/equipment-form";
+import { IrrigationZoneForm } from "@/components/forms/irrigation-zone-form";
+import { LawnProfileForm } from "@/components/forms/lawn-profile-form";
+import { ProductForm } from "@/components/forms/product-form";
+import { SoilTestForm } from "@/components/forms/soil-test-form";
 import { TreatmentForm } from "@/components/forms/treatment-form";
-import type { Product, Equipment, Treatment } from "@/lib/api";
+import type { Product, Equipment, LawnProfile, Treatment } from "@/lib/api";
+
+type QuickLogAction =
+  | "cultural"
+  | "equipment"
+  | "lawn-profile"
+  | "product"
+  | "soil-test"
+  | "treatment"
+  | "zone";
 
 export type QuickLogData = {
   products: Product[];
   equipment: Equipment[];
+  profile: LawnProfile | null;
   lastTreatment: Treatment | null;
   defaultSqft: number | null;
 };
 
+function actionForPath(pathname: string): QuickLogAction {
+  if (pathname.startsWith("/cultural")) {
+    return "cultural";
+  }
+  if (pathname.startsWith("/equipment")) {
+    return "equipment";
+  }
+  if (pathname.startsWith("/products")) {
+    return "product";
+  }
+  if (pathname.startsWith("/soil-tests")) {
+    return "soil-test";
+  }
+  if (pathname.startsWith("/zones")) {
+    return "zone";
+  }
+  if (pathname.startsWith("/settings")) {
+    return "lawn-profile";
+  }
+  if (pathname.startsWith("/treatments")) {
+    return "treatment";
+  }
+
+  return "cultural";
+}
+
+function titleForAction(action: QuickLogAction) {
+  switch (action) {
+    case "cultural":
+      return "Quick log cultural practice";
+    case "equipment":
+      return "Quick add equipment";
+    case "lawn-profile":
+      return "Quick update lawn profile";
+    case "product":
+      return "Quick add product";
+    case "soil-test":
+      return "Quick add soil test";
+    case "zone":
+      return "Quick add irrigation zone";
+    case "treatment":
+    default:
+      return "Quick log treatment";
+  }
+}
+
 export function QuickLogFab() {
+  const pathname = usePathname();
+  const action = actionForPath(pathname);
+
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<QuickLogData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,9 +121,10 @@ export function QuickLogFab() {
     }
   }
 
-  const { products, equipment, lastTreatment, defaultSqft } = data ?? {
+  const { products, equipment, profile, lastTreatment, defaultSqft } = data ?? {
     products: [],
     equipment: [],
+    profile: null,
     lastTreatment: null,
     defaultSqft: null,
   };
@@ -72,7 +139,7 @@ export function QuickLogFab() {
       {/* FAB sits above the two-row mobile bottom nav. */}
       <button
         onClick={() => handleOpenChange(true)}
-        aria-label="Quick log treatment"
+        aria-label={titleForAction(action)}
         className="fixed right-4 bottom-28 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:bottom-6"
       >
         <Plus className="h-6 w-6" />
@@ -81,7 +148,7 @@ export function QuickLogFab() {
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Quick log treatment</DialogTitle>
+            <DialogTitle>{titleForAction(action)}</DialogTitle>
           </DialogHeader>
           {isLoading && (
             <div className="space-y-4">
@@ -104,7 +171,7 @@ export function QuickLogFab() {
               </Button>
             </div>
           )}
-          {!isLoading && !error && data && (
+          {!isLoading && !error && data && action === "treatment" && (
             <TreatmentForm
               treatment={prefill}
               products={products}
@@ -112,6 +179,28 @@ export function QuickLogFab() {
               defaultSqft={defaultSqft ?? undefined}
               onSuccess={() => setOpen(false)}
             />
+          )}
+          {!isLoading && !error && data && action === "cultural" && (
+            <CulturalPracticeForm
+              equipment={equipment}
+              initialPracticeType="mow"
+              onSuccess={() => setOpen(false)}
+            />
+          )}
+          {!isLoading && !error && data && action === "equipment" && (
+            <EquipmentForm onSuccess={() => setOpen(false)} />
+          )}
+          {!isLoading && !error && data && action === "product" && (
+            <ProductForm onSuccess={() => setOpen(false)} />
+          )}
+          {!isLoading && !error && data && action === "soil-test" && (
+            <SoilTestForm onSuccess={() => setOpen(false)} />
+          )}
+          {!isLoading && !error && data && action === "zone" && (
+            <IrrigationZoneForm onSuccess={() => setOpen(false)} />
+          )}
+          {!isLoading && !error && data && action === "lawn-profile" && (
+            <LawnProfileForm defaultValues={profile ?? undefined} />
           )}
         </DialogContent>
       </Dialog>

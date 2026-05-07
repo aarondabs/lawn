@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { addTreatment, updateTreatment } from "@/app/actions/treatment";
+import { toLocalDatetimeInputValue } from "@/lib/datetime";
 import type { Treatment, Product, Equipment } from "@/lib/api";
 
 const UNITS = ["lb", "oz", "fl_oz", "gal"] as const;
@@ -34,10 +35,6 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function toLocalDatetimeString(iso: string) {
-  return iso.slice(0, 16);
-}
-
 type Props = {
   treatment?: Treatment;
   products: Product[];
@@ -54,8 +51,8 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
     resolver: zodResolver(schema) as any,
     defaultValues: {
       applied_at: treatment
-        ? toLocalDatetimeString(treatment.applied_at)
-        : toLocalDatetimeString(new Date().toISOString()),
+        ? toLocalDatetimeInputValue(treatment.applied_at)
+        : toLocalDatetimeInputValue(new Date()),
       product_id: treatment?.product_id ?? "",
       rate_applied: treatment?.rate_applied ?? undefined,
       rate_unit: (treatment?.rate_unit as typeof UNITS[number]) ?? "lb",

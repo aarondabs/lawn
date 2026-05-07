@@ -20,6 +20,7 @@ export async function GET() {
   const payload: QuickLogData = {
     products,
     equipment,
+    profile,
     lastTreatment: sortedTreatments[0] ?? null,
     defaultSqft: profile?.total_sqft ?? null,
   };
