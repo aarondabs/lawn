@@ -447,6 +447,9 @@ async def test_rachio_poll_inserts_events(client: AsyncClient, monkeypatch: pyte
     async def fake_person_info(_: str) -> dict[str, Any]:
         return {"id": "person-1", "devices": []}
 
+    async def fake_person_details(_: str, __: str) -> dict[str, Any]:
+        return {"devices": [{"id": "device-1"}]}
+
     async def fake_events(*_: Any, **__: Any) -> list[dict[str, Any]]:
         return [
             {
@@ -460,6 +463,7 @@ async def test_rachio_poll_inserts_events(client: AsyncClient, monkeypatch: pyte
         ]
 
     monkeypatch.setattr("lawn_api.services.rachio.fetch_person_info", fake_person_info)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_details", fake_person_details)
     monkeypatch.setattr("lawn_api.services.rachio.fetch_recent_events", fake_events)
 
     polled = await client.post("/api/v1/admin/poll-rachio")

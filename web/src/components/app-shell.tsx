@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { FlaskConical, Home, Settings, Shovel, Sprout, TestTube, Tractor, Wrench } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { QuickLogFab, type QuickLogData } from "@/components/quick-log-fab";
+import { QuickLogFab } from "@/components/quick-log-fab";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -20,10 +20,9 @@ const navItems = [
 
 type AppShellProps = {
   children: React.ReactNode;
-  quickLogData?: QuickLogData;
 };
 
-export function AppShell({ children, quickLogData }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
 
   return (
@@ -63,14 +62,14 @@ export function AppShell({ children, quickLogData }: AppShellProps) {
           </nav>
         </aside>
 
-        <main className="min-h-[calc(100vh-3.5rem)] p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+        <main className="min-h-[calc(100vh-3.5rem)] p-4 pb-36 md:p-6 md:pb-6">{children}</main>
       </div>
 
-      {quickLogData && <QuickLogFab data={quickLogData} />}
+      <QuickLogFab />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background md:hidden">
         <div className="grid grid-cols-4">
-          {navItems.slice(0, 4).map((item) => {
+          {navItems.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
             return (
@@ -78,7 +77,7 @@ export function AppShell({ children, quickLogData }: AppShellProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-1 px-2 py-2 text-[11px]",
+                  "flex min-h-12 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-[11px] leading-none",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
