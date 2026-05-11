@@ -2,12 +2,16 @@
 set -eu
 
 # Recreate containers so updated .env values are injected.
+# NOTE: This does NOT rebuild images. Use ops/deploy.sh when source code has
+# changed — it rebuilds images before restarting so containers always run
+# the current code.
+#
 # Usage:
 #   ./ops/reload-env.sh            # recreate api only (fast path)
 #   ./ops/reload-env.sh all        # recreate api, web, and db
 #   ./ops/reload-env.sh api web    # recreate specific services
 
-BASE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
+BASE_FILES="-f docker-compose.yml"
 
 if [ "$#" -eq 0 ]; then
   SERVICES="api"
