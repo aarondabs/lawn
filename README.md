@@ -57,6 +57,37 @@ When you update `.env`, a plain container restart is not enough. Recreate the co
 2. Optional full stack recreate: `./ops/reload-env.sh all`
 3. Optional specific services: `./ops/reload-env.sh api web`
 
+## Safe testing workflow
+
+Tests are configured to run against a dedicated test database, not the live app database.
+
+1. Initialize or migrate the test DB:
+	`./ops/init-test-db.sh`
+2. Run tests:
+	`cd api && ./.venv/bin/pytest -q`
+
+If you run tests from the host shell, set `TEST_DATABASE_URL` to the host-exposed DB port, for example:
+
+`TEST_DATABASE_URL=postgresql+psycopg://lawn:<password>@localhost:5433/lawn_test ./.venv/bin/pytest -q`
+
+Test safety guards are enforced in `api/tests/test_health_placeholder.py`:
+
+- Destructive fixture logic refuses to run unless `APP_ENV=test` or an explicit override is set.
+- It also refuses to truncate `lawn` or `postgres` DB names unless explicitly overridden.
+
+## Database backups
+
+Nightly backup and restore scripts:
+
+1. Create backup now:
+	`./ops/backup-db.sh`
+2. Install nightly cron job (default: `03:30`):
+	`./ops/install-db-backup-cron.sh`
+3. Restore from backup:
+	`./ops/restore-db.sh /path/to/backup.sql.gz`
+
+Backups are written to `ops/private/db-backups` and rotated with 14-day retention by default.
+
 ## Publishing this repository
 
 1. Create a new public repo on GitHub.

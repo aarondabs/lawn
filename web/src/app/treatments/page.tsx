@@ -17,6 +17,29 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function productSummary(
+  treatment: { products: Array<{ product_id: string; rate_applied: number; rate_unit: string; position: number | null }> },
+  productMap: Record<string, { name: string }>,
+) {
+  if (treatment.products.length === 0) return "No products";
+  const sorted = [...treatment.products].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const names = sorted
+    .map((p) => productMap[p.product_id]?.name ?? "Unknown product")
+    .filter((n, idx, arr) => arr.indexOf(n) === idx);
+  if (names.length <= 1) return names[0] ?? "Unknown product";
+  return `${names[0]} +${names.length - 1} more`;
+}
+
+function rateSummary(
+  treatment: { products: Array<{ rate_applied: number; rate_unit: string; position: number | null }> },
+) {
+  if (treatment.products.length === 0) return "-";
+  const sorted = [...treatment.products].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const first = sorted[0];
+  if (sorted.length === 1) return `${first.rate_applied} ${first.rate_unit}`;
+  return `${first.rate_applied} ${first.rate_unit} (+${sorted.length - 1})`;
+}
+
 export default async function TreatmentsPage() {
   const [treatments, products, equipment] = await Promise.all([
     listTreatments().catch(() => []),
@@ -60,9 +83,9 @@ export default async function TreatmentsPage() {
               <TableRow key={t.id}>
                 <TableCell>{formatDate(t.applied_at)}</TableCell>
                 <TableCell className="font-medium">
-                  {productMap[t.product_id]?.name ?? "Unknown product"}
+                  {productSummary(t, productMap)}
                 </TableCell>
-                <TableCell>{t.rate_applied} {t.rate_unit}</TableCell>
+                <TableCell>{rateSummary(t)}</TableCell>
                 <TableCell>{t.area_treated_sqft.toLocaleString()}</TableCell>
                 <TableCell>
                   {t.target ? <Badge variant="outline">{t.target}</Badge> : "–"}
@@ -88,9 +111,9 @@ export default async function TreatmentsPage() {
               <CardContent className="flex items-center gap-3 py-3">
                 <FlaskConical className="h-5 w-5 shrink-0 text-emerald-600" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{productMap[t.product_id]?.name ?? "Unknown"}</p>
+                  <p className="truncate font-medium">{productSummary(t, productMap)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDate(t.applied_at)} · {t.rate_applied} {t.rate_unit}
+                    {formatDate(t.applied_at)} · {rateSummary(t)}
                   </p>
                 </div>
                 {t.target && (

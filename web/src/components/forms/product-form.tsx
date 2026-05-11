@@ -15,10 +15,31 @@ import { addProduct, updateProduct } from "@/app/actions/product";
 import type { Product } from "@/lib/api";
 
 const PRODUCT_TYPES = [
-  "fertilizer", "herbicide_pre", "herbicide_post", "fungicide",
-  "insecticide", "biostimulant", "soil_amendment", "seed", "other",
+  "fertilizer_synthetic",
+  "fertilizer_organic",
+  "herbicide_pre",
+  "herbicide_post_broadleaf",
+  "herbicide_post_grassy",
+  "herbicide_non_selective",
+  "fungicide",
+  "insecticide",
+  "biostimulant",
+  "soil_amendment",
+  "surfactant",
+  "wetting_agent",
+  "dye_marker",
+  "seed",
+  "other",
 ] as const;
-const UNITS = ["lb", "oz", "fl_oz", "gal"] as const;
+const UNITS = [
+  "lb_per_1000",
+  "oz_per_1000",
+  "fl_oz_per_1000",
+  "gal_per_1000",
+  "fl_oz_per_gal",
+  "pct_vv",
+  "lb_per_acre",
+] as const;
 
 const schema = z.object({
   name: z.string().min(1),
@@ -51,9 +72,9 @@ export function ProductForm({ product, onSuccess }: Props) {
     defaultValues: {
       name: product?.name ?? "",
       manufacturer: product?.manufacturer ?? "",
-      product_type: (product?.product_type as typeof PRODUCT_TYPES[number]) ?? "fertilizer",
+      product_type: (product?.product_type as typeof PRODUCT_TYPES[number]) ?? "fertilizer_synthetic",
       label_rate: product?.label_rate ?? undefined,
-      label_rate_unit: (product?.label_rate_unit as typeof UNITS[number]) ?? "lb",
+      label_rate_unit: (product?.label_rate_unit as typeof UNITS[number]) ?? "lb_per_1000",
       reentry_interval_hours: product?.reentry_interval_hours ?? undefined,
       min_reapplication_days: product?.min_reapplication_days ?? undefined,
       max_annual_rate: product?.max_annual_rate ?? undefined,

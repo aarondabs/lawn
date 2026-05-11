@@ -38,7 +38,11 @@ export default async function TreatmentDetailPage({ params }: { params: Promise<
     listProducts().catch(() => []),
     listEquipment().catch(() => []),
   ]);
-  const product = products.find((p) => p.id === treatment.product_id);
+  const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+  const treatmentProducts = [...treatment.products].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const title = treatmentProducts.length
+    ? `${productMap[treatmentProducts[0].product_id]?.name ?? "Treatment"}${treatmentProducts.length > 1 ? ` +${treatmentProducts.length - 1}` : ""}`
+    : "Treatment";
   const equip = equipment.find((e) => e.id === treatment.equipment_id);
 
   return (
@@ -51,7 +55,7 @@ export default async function TreatmentDetailPage({ params }: { params: Promise<
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{product?.name ?? "Treatment"}</h1>
+          <h1 className="text-2xl font-semibold">{title}</h1>
           <p className="text-sm text-muted-foreground">{formatDate(treatment.applied_at)}</p>
         </div>
         <TreatmentDetailClient treatment={treatment} products={products} equipment={equipment} />
@@ -61,8 +65,6 @@ export default async function TreatmentDetailPage({ params }: { params: Promise<
         <Card>
           <CardHeader><CardTitle className="text-base">Application</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <DetailRow label="Product" value={product?.name} />
-            <DetailRow label="Rate applied" value={`${treatment.rate_applied} ${treatment.rate_unit} / 1000 sq ft`} />
             <DetailRow label="Area treated" value={`${treatment.area_treated_sqft.toLocaleString()} sq ft`} />
             <DetailRow label="Equipment" value={equip ? `${equip.make} ${equip.model}` : null} />
             <DetailRow label="Applicator" value={treatment.applicator} />
@@ -83,15 +85,30 @@ export default async function TreatmentDetailPage({ params }: { params: Promise<
             <CardContent><p className="text-sm whitespace-pre-wrap">{treatment.notes}</p></CardContent>
           </Card>
         )}
-        {product && (
+
+        {treatmentProducts.length > 0 && (
           <Card className="sm:col-span-2">
-            <CardHeader><CardTitle className="text-base">Product info</CardTitle></CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{product.product_type.replace(/_/g, " ")}</Badge>
-              <span className="text-sm text-muted-foreground">Label rate: {product.label_rate} {product.label_rate_unit}</span>
-              {product.reentry_interval_hours != null && (
-                <span className="text-sm text-muted-foreground">REI: {product.reentry_interval_hours} hrs</span>
-              )}
+            <CardHeader><CardTitle className="text-base">Tank Mix</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {treatmentProducts.map((tp) => {
+                const product = productMap[tp.product_id];
+                return (
+                  <div key={tp.product_id} className="rounded-md border p-3">
+                    <p className="font-medium">{product?.name ?? "Unknown product"}</p>
+                    <p className="text-sm text-muted-foreground">Rate: {tp.rate_applied} {tp.rate_unit}</p>
+                    {tp.notes ? <p className="text-sm text-muted-foreground">Notes: {tp.notes}</p> : null}
+                    {product ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge variant="secondary">{product.product_type.replace(/_/g, " ")}</Badge>
+                        <span className="text-sm text-muted-foreground">Label: {product.label_rate} {product.label_rate_unit}</span>
+                        {product.reentry_interval_hours != null ? (
+                          <span className="text-sm text-muted-foreground">REI: {product.reentry_interval_hours} hrs</span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
         )}

@@ -7,6 +7,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lawn_api.db import get_db
+from sqlalchemy.orm import selectinload
+
 from lawn_api.models.entities import (
     CulturalPractice,
     IrrigationEvent,
@@ -15,6 +17,7 @@ from lawn_api.models.entities import (
     Reminder,
     SoilTest,
     Treatment,
+    TreatmentProduct,
     WeatherForecast,
     WeatherObservation,
 )
@@ -132,14 +135,16 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
         )
     ).all()
 
-    last_treatment_row = (
+    last_treatment_obj = (
         await db.execute(
-            select(Treatment, Product.name)
-            .join(Product, Treatment.product_id == Product.id)
+            select(Treatment)
+            .options(
+                selectinload(Treatment.products).selectinload(TreatmentProduct.product)
+            )
             .order_by(Treatment.applied_at.desc())
             .limit(1)
         )
-    ).first()
+    ).scalar_one_or_none()
 
     cultural_rows = (
         await db.execute(
@@ -199,16 +204,13 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
     irrigation_zone_events_count_7d = sum(1 for row in irrigation_by_zone if row["inches"] > 0)
 
     last_treatment = None
-    if last_treatment_row is not None:
-        treatment, product_name = last_treatment_row
-        days_ago = max((now_utc - treatment.applied_at).days, 0)
+    if last_treatment_obj is not None:
+        days_ago = max((now_utc - last_treatment_obj.applied_at).days, 0)
+        first_tp = last_treatment_obj.products[0] if last_treatment_obj.products else None
         last_treatment = {
-            "id": str(treatment.id),
-            "applied_at": treatment.applied_at.isoformat(),
-            "product_id": str(treatment.product_id),
-            "product_name": product_name,
-            "rate_applied": _num(treatment.rate_applied),
-            "rate_unit": treatment.rate_unit,
+            "id": str(last_treatment_obj.id),
+            "applied_at": last_treatment_obj.applied_at.isoformat(),
+            "product_name": first_tp.product.name if first_tp else None,
             "days_ago": days_ago,
         }
 

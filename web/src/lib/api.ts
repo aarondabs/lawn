@@ -131,12 +131,28 @@ export type Product = {
   updated_at: string;
 };
 
-export type Treatment = {
-  id: string;
-  applied_at: string;
+export type TreatmentProduct = {
   product_id: string;
   rate_applied: number;
   rate_unit: string;
+  position: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TreatmentProductInput = {
+  product_id: string;
+  rate_applied: number;
+  rate_unit: string;
+  position?: number | null;
+  notes?: string | null;
+};
+
+export type Treatment = {
+  id: string;
+  applied_at: string;
+  products: TreatmentProduct[];
   area_treated_sqft: number;
   equipment_id: string | null;
   applicator: string;
@@ -147,6 +163,19 @@ export type Treatment = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type TreatmentInput = {
+  applied_at: string;
+  products: TreatmentProductInput[];
+  area_treated_sqft: number;
+  equipment_id: string | null;
+  applicator: string;
+  weather_temp_f: number | null;
+  weather_wind_mph: number | null;
+  weather_conditions: string | null;
+  target: string | null;
+  notes: string | null;
 };
 
 export type CulturalPractice = {
@@ -358,11 +387,11 @@ export async function getTreatment(id: string) {
   return apiRequest<Treatment>(`/api/v1/treatments/${id}`);
 }
 
-export async function createTreatment(body: Omit<Treatment, "id" | "created_at" | "updated_at">) {
+export async function createTreatment(body: TreatmentInput) {
   return apiRequest<Treatment>("/api/v1/treatments", { method: "POST", body });
 }
 
-export async function patchTreatment(id: string, body: Partial<Omit<Treatment, "id" | "created_at" | "updated_at">>) {
+export async function patchTreatment(id: string, body: Partial<TreatmentInput>) {
   return apiRequest<Treatment>(`/api/v1/treatments/${id}`, { method: "PATCH", body });
 }
 

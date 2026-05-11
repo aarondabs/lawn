@@ -23,17 +23,36 @@ IRRIGATION_ZONE_CATEGORIES = (
 EQUIPMENT_TYPES = ("sprayer", "spreader", "aerator", "dethatcher", "mower", "edger", "other")
 
 PRODUCT_TYPES = (
-    "fertilizer",
+    "fertilizer_synthetic",
+    "fertilizer_organic",
     "herbicide_pre",
-    "herbicide_post",
+    "herbicide_post_broadleaf",
+    "herbicide_post_grassy",
+    "herbicide_non_selective",
     "fungicide",
     "insecticide",
     "biostimulant",
     "soil_amendment",
+    "surfactant",
+    "wetting_agent",
+    "dye_marker",
     "seed",
     "other",
 )
-PRODUCT_UNITS = ("lb", "oz", "fl_oz", "gal")
+
+RATE_UNITS = (
+    "lb_per_1000",
+    "oz_per_1000",
+    "fl_oz_per_1000",
+    "gal_per_1000",
+    "fl_oz_per_gal",
+    "pct_vv",
+    "lb_per_acre",
+)
+
+# Rate units that are NOT area-based (used for adjuvants, surfactants, etc.)
+# Tank mixes with only these units are invalid.
+NON_AREA_RATE_UNITS = ("fl_oz_per_gal", "pct_vv")
 
 TREATMENT_APPLICATORS = ("self", "spouse", "lawn_service", "other")
 

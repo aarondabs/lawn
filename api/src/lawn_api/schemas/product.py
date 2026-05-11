@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from lawn_api.models.constants import PRODUCT_TYPES, PRODUCT_UNITS
+from lawn_api.models.constants import PRODUCT_TYPES, RATE_UNITS
 
 
 class ProductCreate(BaseModel):
@@ -14,13 +14,13 @@ class ProductCreate(BaseModel):
     active_ingredients: dict[str, Any] | None = None
     guaranteed_analysis: dict[str, Any] | None = None
     label_rate: float
-    label_rate_unit: Literal[*PRODUCT_UNITS]
+    label_rate_unit: Literal[*RATE_UNITS]
     reentry_interval_hours: int | None = None
     min_reapplication_days: int | None = None
     max_annual_rate: float | None = None
-    max_annual_rate_unit: Literal[*PRODUCT_UNITS] | None = None
+    max_annual_rate_unit: Literal[*RATE_UNITS] | None = None
     current_inventory: float | None = None
-    current_inventory_unit: Literal[*PRODUCT_UNITS] | None = None
+    current_inventory_unit: Literal[*RATE_UNITS] | None = None
     notes: str | None = None
 
 
@@ -31,13 +31,13 @@ class ProductPatch(BaseModel):
     active_ingredients: dict[str, Any] | None = None
     guaranteed_analysis: dict[str, Any] | None = None
     label_rate: float | None = None
-    label_rate_unit: Literal[*PRODUCT_UNITS] | None = None
+    label_rate_unit: Literal[*RATE_UNITS] | None = None
     reentry_interval_hours: int | None = None
     min_reapplication_days: int | None = None
     max_annual_rate: float | None = None
-    max_annual_rate_unit: Literal[*PRODUCT_UNITS] | None = None
+    max_annual_rate_unit: Literal[*RATE_UNITS] | None = None
     current_inventory: float | None = None
-    current_inventory_unit: Literal[*PRODUCT_UNITS] | None = None
+    current_inventory_unit: Literal[*RATE_UNITS] | None = None
     notes: str | None = None
 
 

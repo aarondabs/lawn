@@ -1,9 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createTreatment, patchTreatment, deleteTreatment, type Treatment } from "@/lib/api";
-
-type TreatmentInput = Omit<Treatment, "id" | "created_at" | "updated_at">;
+import {
+  createTreatment,
+  patchTreatment,
+  deleteTreatment,
+  type Treatment,
+  type TreatmentInput,
+} from "@/lib/api";
 
 export async function addTreatment(
   data: TreatmentInput,

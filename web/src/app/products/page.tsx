@@ -50,7 +50,7 @@ export default async function ProductsPage() {
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell>{p.manufacturer}</TableCell>
                 <TableCell><Badge variant="outline">{p.product_type.replace(/_/g, " ")}</Badge></TableCell>
-                <TableCell>{p.label_rate} {p.label_rate_unit}/1000 sq ft</TableCell>
+                <TableCell>{p.label_rate} {p.label_rate_unit}</TableCell>
                 <TableCell>
                   {p.current_inventory != null ? `${p.current_inventory} ${p.current_inventory_unit}` : "–"}
                 </TableCell>

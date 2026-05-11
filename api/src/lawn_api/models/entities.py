@@ -38,16 +38,17 @@ from lawn_api.models.constants import (
     EQUIPMENT_TYPES,
     IRRIGATION_EVENT_SOURCES,
     IRRIGATION_HEAD_TYPES,
-    IRRIGATION_ZONE_CATEGORIES,
     IRRIGATION_SLOPES,
     IRRIGATION_SUN_EXPOSURES,
+    IRRIGATION_ZONE_CATEGORIES,
     PRODUCT_TYPES,
-    PRODUCT_UNITS,
+    RATE_UNITS,
     REMINDER_TYPES,
     SOIL_TYPES,
     TREATMENT_APPLICATORS,
     WATER_SOURCES,
 )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -59,7 +60,7 @@ def _sql_in(values: tuple[str, ...]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# lawn_profile — singleton row representing Aaron's lawn
+# lawn_profile - singleton row representing Aaron's lawn
 # ---------------------------------------------------------------------------
 
 class LawnProfile(Base):
@@ -202,15 +203,15 @@ class Product(Base):
             name="product_product_type_check",
         ),
         CheckConstraint(
-            f"label_rate_unit IN ({_sql_in(PRODUCT_UNITS)})",
+            f"label_rate_unit IN ({_sql_in(RATE_UNITS)})",
             name="product_label_rate_unit_check",
         ),
         CheckConstraint(
-            f"current_inventory_unit IS NULL OR current_inventory_unit IN ({_sql_in(PRODUCT_UNITS)})",
+            f"current_inventory_unit IS NULL OR current_inventory_unit IN ({_sql_in(RATE_UNITS)})",
             name="product_current_inventory_unit_check",
         ),
         CheckConstraint(
-            f"max_annual_rate_unit IS NULL OR max_annual_rate_unit IN ({_sql_in(PRODUCT_UNITS)})",
+            f"max_annual_rate_unit IS NULL OR max_annual_rate_unit IN ({_sql_in(RATE_UNITS)})",
             name="product_max_annual_rate_unit_check",
         ),
     )
@@ -239,7 +240,7 @@ class Product(Base):
         onupdate=func.now(),
     )
 
-    treatments = relationship("Treatment", back_populates="product")
+    treatment_products = relationship("TreatmentProduct", back_populates="product")
 
 
 # ---------------------------------------------------------------------------
@@ -250,10 +251,6 @@ class Treatment(Base):
     __tablename__ = "treatment"
     __table_args__ = (
         CheckConstraint(
-            f"rate_unit IN ({_sql_in(PRODUCT_UNITS)})",
-            name="treatment_rate_unit_check",
-        ),
-        CheckConstraint(
             f"applicator IN ({_sql_in(TREATMENT_APPLICATORS)})",
             name="treatment_applicator_check",
         ),
@@ -261,11 +258,6 @@ class Treatment(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     applied_at = Column(TIMESTAMP(timezone=True), nullable=False)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("product.id"), nullable=False)
-    rate_applied = Column(Numeric, nullable=False)
-    rate_unit = Column(Text, nullable=False)
-    # total_amount is dropped — computed at API serialization time:
-    #   rate_applied × area_treated_sqft / 1000 (unit = rate_unit)
     area_treated_sqft = Column(Integer, nullable=False)
     equipment_id = Column(UUID(as_uuid=True), ForeignKey("equipment.id"), nullable=True)
     applicator = Column(Text, nullable=False)
@@ -283,13 +275,50 @@ class Treatment(Base):
         onupdate=func.now(),
     )
 
-    product = relationship("Product", back_populates="treatments")
     equipment = relationship("Equipment", back_populates="treatments")
+    products = relationship(
+        "TreatmentProduct",
+        back_populates="treatment",
+        cascade="all, delete-orphan",
+        order_by="TreatmentProduct.position",
+    )
     reminders = relationship(
         "Reminder",
         foreign_keys="Reminder.completed_treatment_id",
         back_populates="completed_treatment",
     )
+
+
+# ---------------------------------------------------------------------------
+# treatment_product (join table for tank mixes)
+# ---------------------------------------------------------------------------
+
+class TreatmentProduct(Base):
+    __tablename__ = "treatment_product"
+    __table_args__ = (
+        CheckConstraint(
+            f"rate_unit IN ({_sql_in(RATE_UNITS)})",
+            name="treatment_product_rate_unit_check",
+        ),
+    )
+
+    treatment_id = Column(UUID(as_uuid=True), ForeignKey("treatment.id", ondelete="CASCADE"), primary_key=True)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("product.id", ondelete="RESTRICT"), primary_key=True)
+    rate_applied = Column(Numeric, nullable=False)
+    rate_unit = Column(Text, nullable=False)
+    position = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    treatment = relationship("Treatment", back_populates="products")
+    product = relationship("Product", back_populates="treatment_products")
 
 
 # ---------------------------------------------------------------------------
@@ -373,13 +402,13 @@ class WeatherForecast(Base):
     __tablename__ = "weather_forecast"
     __table_args__ = (
         # Uniqueness is enforced on the derived calendar day (in Central Time)
-        # rather than the raw timestamptz.  See DATA_MODEL.md — Forecast overwrite.
+        # rather than the raw timestamptz. See DATA_MODEL.md - Forecast overwrite.
         UniqueConstraint("forecast_for_day", "source", name="weather_forecast_day_source_uniq"),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     forecast_for = Column(TIMESTAMP(timezone=True), nullable=False)
-    # Hardcoded to America/Chicago — lawn is in Topeka, KS.
+    # Hardcoded to America/Chicago - lawn is in Topeka, KS.
     # If multi-location support is ever added, move this to per-row
     # computation or denormalize the timezone onto lawn_profile.
     forecast_for_day = Column(
@@ -447,8 +476,8 @@ class Reminder(Base):
 
 
 # ---------------------------------------------------------------------------
-# weather_observation — TimescaleDB hypertable exception
-# PK: (observed_at, source).  No UUID.
+# weather_observation - TimescaleDB hypertable exception
+# PK: (observed_at, source). No UUID.
 # Partitioning column: observed_at.
 # ---------------------------------------------------------------------------
 
@@ -471,8 +500,8 @@ class WeatherObservation(Base):
 
 
 # ---------------------------------------------------------------------------
-# irrigation_event — TimescaleDB hypertable exception
-# PK: (started_at, zone_id).  No UUID.
+# irrigation_event - TimescaleDB hypertable exception
+# PK: (started_at, zone_id). No UUID.
 # Partitioning column: started_at.
 # ---------------------------------------------------------------------------
 
@@ -480,7 +509,7 @@ class IrrigationEvent(Base):
     __tablename__ = "irrigation_event"
     __table_args__ = (
         # Partial unique index: rachio_event_id uniqueness enforced only when
-        # non-null.  Manual events have NULL and are not deduplicated this way.
+        # non-null. Manual events have NULL and are not deduplicated this way.
         # TimescaleDB requires all unique indexes to include the partitioning column.
         # (rachio_event_id, started_at) is still an effective deduplication key because
         # a given Rachio event always has the same start time.
@@ -509,7 +538,7 @@ class IrrigationEvent(Base):
     # Snapshot the zone's precip rate at insert time so historical inches_applied
     # reflects the calibration in effect then, not the current calibration.
     precip_rate_in_per_hr_snapshot = Column(Numeric(4, 2), nullable=False)
-    # Generated from local columns only — Postgres generated columns can't
+    # Generated from local columns only - Postgres generated columns cannot
     # reference other tables, hence the snapshot pattern above.
     inches_applied = Column(
         Numeric(6, 3),

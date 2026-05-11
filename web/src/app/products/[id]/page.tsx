@@ -52,7 +52,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <Card>
           <CardHeader><CardTitle className="text-base">Application</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <DetailRow label="Label rate" value={`${product.label_rate} ${product.label_rate_unit} / 1000 sq ft`} />
+            <DetailRow label="Label rate" value={`${product.label_rate} ${product.label_rate_unit}`} />
             <DetailRow label="Re-entry interval" value={product.reentry_interval_hours != null ? `${product.reentry_interval_hours} hrs` : null} />
             <DetailRow label="Min reapplication" value={product.min_reapplication_days != null ? `${product.min_reapplication_days} days` : null} />
             <DetailRow

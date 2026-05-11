@@ -1,11 +1,14 @@
-from datetime import date, datetime, timezone
+import os
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select, text
+from sqlalchemy.engine.url import make_url
 
+from lawn_api.config import settings
 from lawn_api.db import AsyncSessionLocal
 from lawn_api.main import app
 from lawn_api.models.entities import WeatherForecast, WeatherObservation
@@ -13,6 +16,21 @@ from lawn_api.models.entities import WeatherForecast, WeatherObservation
 
 @pytest_asyncio.fixture
 async def client() -> AsyncClient:
+    app_env = os.getenv("APP_ENV", "development").lower()
+    allow_destructive = os.getenv("LAWN_ALLOW_DESTRUCTIVE_TESTS") == "1"
+    if app_env != "test" and not allow_destructive:
+        raise RuntimeError(
+            "Refusing to run destructive test fixture against non-test environment. "
+            "Set APP_ENV=test or LAWN_ALLOW_DESTRUCTIVE_TESTS=1 to proceed."
+        )
+
+    db_name = (make_url(settings.database_url).database or "").lower()
+    if db_name in {"lawn", "postgres"} and not allow_destructive:
+        raise RuntimeError(
+            f"Refusing to truncate non-test database '{db_name}'. "
+            "Use a dedicated test DB (for example: lawn_test)."
+        )
+
     async with AsyncSessionLocal() as db:
         await db.execute(
             text(
@@ -127,9 +145,9 @@ async def test_product_crud_flow(client: AsyncClient) -> None:
         json={
             "name": "Starter Fert",
             "manufacturer": "Acme",
-            "product_type": "fertilizer",
+            "product_type": "fertilizer_synthetic",
             "label_rate": 4.0,
-            "label_rate_unit": "lb",
+            "label_rate_unit": "lb_per_1000",
         },
     )
     assert created.status_code == 201
@@ -185,21 +203,33 @@ async def test_cultural_practice_crud_flow(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_treatment_crud_flow(client: AsyncClient) -> None:
-    product = await client.post(
+    herbicide = await client.post(
         "/api/v1/products",
         json={
-            "name": "Pre-Emergent",
+            "name": "3-Way Mix",
             "manufacturer": "Acme",
-            "product_type": "herbicide_pre",
-            "label_rate": 2.0,
-            "label_rate_unit": "lb",
+            "product_type": "herbicide_post_broadleaf",
+            "label_rate": 1.2,
+            "label_rate_unit": "fl_oz_per_1000",
         },
     )
-    assert product.status_code == 201
+    assert herbicide.status_code == 201
+
+    surfactant = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "Surfactant",
+            "manufacturer": "Acme",
+            "product_type": "surfactant",
+            "label_rate": 1.5,
+            "label_rate_unit": "fl_oz_per_gal",
+        },
+    )
+    assert surfactant.status_code == 201
 
     equipment = await client.post(
         "/api/v1/equipment",
-        json={"type": "spreader", "make": "Echo", "model": "RB-60"},
+        json={"type": "sprayer", "make": "Echo", "model": "RB-60"},
     )
     assert equipment.status_code == 201
 
@@ -207,9 +237,18 @@ async def test_treatment_crud_flow(client: AsyncClient) -> None:
         "/api/v1/treatments",
         json={
             "applied_at": datetime.now(timezone.utc).isoformat(),
-            "product_id": product.json()["id"],
-            "rate_applied": 2.5,
-            "rate_unit": "lb",
+            "products": [
+                {
+                    "product_id": herbicide.json()["id"],
+                    "rate_applied": 1.2,
+                    "rate_unit": "fl_oz_per_1000",
+                },
+                {
+                    "product_id": surfactant.json()["id"],
+                    "rate_applied": 1.5,
+                    "rate_unit": "fl_oz_per_gal",
+                },
+            ],
             "area_treated_sqft": 5000,
             "equipment_id": equipment.json()["id"],
             "applicator": "self",
@@ -217,6 +256,7 @@ async def test_treatment_crud_flow(client: AsyncClient) -> None:
     )
     assert created.status_code == 201
     treatment_id = created.json()["id"]
+    assert len(created.json()["products"]) == 2
 
     listed = await client.get("/api/v1/treatments")
     assert listed.status_code == 200
@@ -224,13 +264,29 @@ async def test_treatment_crud_flow(client: AsyncClient) -> None:
 
     detail = await client.get(f"/api/v1/treatments/{treatment_id}")
     assert detail.status_code == 200
+    assert len(detail.json()["products"]) == 2
 
     patched = await client.patch(
         f"/api/v1/treatments/{treatment_id}",
-        json={"notes": "Applied before rain"},
+        json={
+            "notes": "Applied before rain",
+            "products": [
+                {
+                    "product_id": herbicide.json()["id"],
+                    "rate_applied": 1.3,
+                    "rate_unit": "fl_oz_per_1000",
+                },
+                {
+                    "product_id": surfactant.json()["id"],
+                    "rate_applied": 1.25,
+                    "rate_unit": "fl_oz_per_gal",
+                },
+            ],
+        },
     )
     assert patched.status_code == 200
     assert patched.json()["notes"] == "Applied before rain"
+    assert patched.json()["products"][0]["rate_applied"] == 1.3
 
     deleted = await client.delete(f"/api/v1/treatments/{treatment_id}")
     assert deleted.status_code == 204
@@ -415,7 +471,15 @@ async def test_rachio_connect_upserts_zones(
             ],
         }
 
+    async def fake_person_details(_: str, __: str) -> dict[str, Any]:
+        return {"devices": [{"id": "device-1"}]}
+
+    async def fake_events(*_: Any, **__: Any) -> list[dict[str, Any]]:
+        return []
+
     monkeypatch.setattr("lawn_api.services.rachio.fetch_person_info", fake_person_info)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_details", fake_person_details)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_recent_events", fake_events)
 
     connected = await client.post("/api/v1/rachio/connect")
     assert connected.status_code == 200
@@ -504,7 +568,7 @@ async def test_rachio_poll_parses_summary_zone_events(
                 "type": "ZONE_STATUS",
                 "subType": "ZONE_COMPLETED",
                 "summary": "Zone 13 completed watering at 10:11 AM (CDT) for 16 minutes.",
-                "eventDate": 1777821076000,
+                "eventDate": int((datetime.now(timezone.utc) - timedelta(days=2)).timestamp() * 1000),
             }
         ]
 
