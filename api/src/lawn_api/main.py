@@ -53,17 +53,16 @@ async def lifespan(_: FastAPI):
         max_instances=1,
     )
 
-    async with AsyncSessionLocal() as session:
-        if await should_schedule_rachio_polling(session):
-            scheduler.add_job(
-                scheduled_rachio_poll,
-                trigger="interval",
-                hours=1,
-                id="rachio-poll",
-                replace_existing=True,
-                coalesce=True,
-                max_instances=1,
-            )
+    if await should_schedule_rachio_polling():
+        scheduler.add_job(
+            scheduled_rachio_poll,
+            trigger="interval",
+            hours=1,
+            id="rachio-poll",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
 
     scheduler.start()
     try:

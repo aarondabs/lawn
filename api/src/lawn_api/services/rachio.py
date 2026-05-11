@@ -177,18 +177,17 @@ def _extract_zone_and_duration_from_summary(summary: Any) -> tuple[int | None, i
 
 
 def _normalize_event_source(event: dict[str, Any]) -> str:
-    raw_source = _norm(event.get("source"))
+    """Map Rachio event fields to a value in IRRIGATION_EVENT_SOURCES."""
     subtype = _norm(event.get("subType"))
     summary = _norm(event.get("summary"))
 
-    # Keep source values compatible with existing DB CHECK constraint.
-    if raw_source in {"manual"} or "manual" in subtype:
-        return "manual"
-    if raw_source in {"calculated"}:
-        return "calculated"
-    if "quick run" in summary:
-        return "rachio"
-    return "rachio"
+    if "quick run" in summary or "quick_run" in subtype:
+        return "rachio_quick_run"
+    if "manual" in subtype or "manual" in summary:
+        return "rachio_manual"
+    if "schedule" in subtype or "schedule" in summary:
+        return "rachio_scheduled"
+    return "rachio_scheduled"
 
 
 async def sync_rachio_zones(db: AsyncSession) -> dict[str, Any]:
@@ -393,7 +392,7 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
     }
 
 
-async def should_schedule_rachio_polling(_db: AsyncSession) -> bool:
+async def should_schedule_rachio_polling() -> bool:
     if not settings.rachio_api_key:
         return False
     return True

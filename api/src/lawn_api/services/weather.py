@@ -75,9 +75,9 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
 
     hourly_rows: list[dict[str, Any]] = []
     for idx, raw_time in enumerate(hourly_times):
-      observed_at = _to_utc(raw_time)
-      if observed_at > now:
-          continue
+        observed_at = _to_utc(raw_time)
+        if observed_at > now:
+            continue
       hourly_rows.append(
           {
               "observed_at": observed_at,

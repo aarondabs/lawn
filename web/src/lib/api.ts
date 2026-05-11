@@ -263,10 +263,7 @@ export type DashboardSummary = {
   last_treatment: {
     id: string;
     applied_at: string;
-    product_id: string;
-    product_name: string;
-    rate_applied: number | null;
-    rate_unit: string;
+    product_name: string | null;
     days_ago: number;
   } | null;
   last_cultural_by_type: Array<{

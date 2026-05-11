@@ -28,7 +28,6 @@ services:
       APP_PORT: ${API_PORT}
       DATABASE_URL: ${DATABASE_URL}
       RACHIO_API_KEY: ${RACHIO_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     depends_on:
       db:
         condition: service_healthy
@@ -42,15 +41,10 @@ services:
       context: ./web
       dockerfile: Dockerfile
     container_name: lawn-web
-    command: npm run dev
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: ${WEB_PORT}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-      WATCHPACK_POLLING: "true"
-    volumes:
-      - /opt/apps/lawn/web/src:/app/src
-      - /opt/apps/lawn/web/public:/app/public
     depends_on:
       - api
     networks:

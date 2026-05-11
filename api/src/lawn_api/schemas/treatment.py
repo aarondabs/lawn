@@ -25,8 +25,6 @@ class TreatmentProductOut(BaseModel):
     rate_unit: str
     position: int | None
     notes: str | None
-    created_at: datetime
-    updated_at: datetime
 
 
 class TreatmentCreate(BaseModel):
