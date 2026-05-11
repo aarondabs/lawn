@@ -13,6 +13,8 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY src ./src
 COPY tests ./tests
+RUN python -m compileall -q src/
+
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 

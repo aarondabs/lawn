@@ -78,21 +78,21 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
         observed_at = _to_utc(raw_time)
         if observed_at > now:
             continue
-      hourly_rows.append(
-          {
-              "observed_at": observed_at,
-              "source": OPENMETEO_SOURCE,
-              "temp_f": None,
-              "humidity_pct": None,
-              "dew_point_f": None,
-              "wind_mph": None,
-              "wind_gust_mph": None,
-              "precip_in": hourly_precip[idx] if idx < len(hourly_precip) else None,
-              "soil_temp_f": hourly_soil_temp[idx] if idx < len(hourly_soil_temp) else None,
-              "et0_in": hourly_et[idx] if idx < len(hourly_et) else None,
-              "gdd_base50": None,
-          }
-      )
+        hourly_rows.append(
+            {
+                "observed_at": observed_at,
+                "source": OPENMETEO_SOURCE,
+                "temp_f": None,
+                "humidity_pct": None,
+                "dew_point_f": None,
+                "wind_mph": None,
+                "wind_gust_mph": None,
+                "precip_in": hourly_precip[idx] if idx < len(hourly_precip) else None,
+                "soil_temp_f": hourly_soil_temp[idx] if idx < len(hourly_soil_temp) else None,
+                "et0_in": hourly_et[idx] if idx < len(hourly_et) else None,
+                "gdd_base50": None,
+            }
+        )
 
     if hourly_rows:
         hourly_stmt = insert(WeatherObservation).values(hourly_rows)
