@@ -103,10 +103,10 @@ export function ReminderActions({ reminder }: Props) {
       </Button>
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" disabled={isPending} title="Snooze">
-            <Clock className="h-4 w-4" />
-          </Button>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="sm" disabled={isPending} title="Snooze" />}
+        >
+          <Clock className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => handleSnooze(3)}>Snooze 3 days</DropdownMenuItem>
@@ -117,16 +117,18 @@ export function ReminderActions({ reminder }: Props) {
       </DropdownMenu>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            disabled={isPending}
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={isPending}
+              title="Delete"
+            />
+          }
+        >
+          <Trash2 className="h-4 w-4" />
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>

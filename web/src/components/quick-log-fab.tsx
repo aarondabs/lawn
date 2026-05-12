@@ -33,6 +33,8 @@ export type QuickLogData = {
   defaultSqft: number | null;
 };
 
+const FAB_HIDDEN_PATHS = ["/reminders"];
+
 function actionForPath(pathname: string): QuickLogAction {
   if (pathname.startsWith("/cultural")) {
     return "cultural";
@@ -82,6 +84,7 @@ function titleForAction(action: QuickLogAction) {
 export function QuickLogFab() {
   const pathname = usePathname();
   const action = actionForPath(pathname);
+  const hidden = FAB_HIDDEN_PATHS.some((p) => pathname.startsWith(p));
 
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<QuickLogData | null>(null);
@@ -137,6 +140,7 @@ export function QuickLogFab() {
   return (
     <>
       {/* FAB sits above the two-row mobile bottom nav. */}
+      {!hidden && (
       <button
         onClick={() => handleOpenChange(true)}
         aria-label={titleForAction(action)}
@@ -144,6 +148,7 @@ export function QuickLogFab() {
       >
         <Plus className="h-6 w-6" />
       </button>
+      )}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">

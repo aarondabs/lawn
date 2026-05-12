@@ -28,14 +28,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "20.17.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.7",
     "postcss": "^8",
-    "tailwindcss": "^4.2.4",
     "shadcn": "^4.7.0",
-    "typescript": "^5"
+    "tailwindcss": "^4.2.4",
+    "typescript": "5.8.2"
   }
 }
