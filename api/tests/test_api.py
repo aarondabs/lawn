@@ -596,3 +596,67 @@ async def test_rachio_webhook_accepts_payload(client: AsyncClient) -> None:
     )
     assert response.status_code == 200
     assert response.json()["status"] == "accepted"
+
+
+@pytest.mark.asyncio
+async def test_reminder_crud_flow(client: AsyncClient) -> None:
+    # Create
+    created = await client.post(
+        "/api/v1/reminders",
+        json={"due_date": "2026-06-01", "reminder_type": "treatment", "description": "Apply pre-emergent"},
+    )
+    assert created.status_code == 201
+    reminder_id = created.json()["id"]
+    assert created.json()["completed"] is False
+
+    # List (default: all)
+    listed = await client.get("/api/v1/reminders")
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+
+    # List filtered pending
+    pending = await client.get("/api/v1/reminders?completed=false")
+    assert len(pending.json()) == 1
+
+    # Detail
+    detail = await client.get(f"/api/v1/reminders/{reminder_id}")
+    assert detail.status_code == 200
+    assert detail.json()["description"] == "Apply pre-emergent"
+
+    # Patch
+    patched = await client.patch(
+        f"/api/v1/reminders/{reminder_id}",
+        json={"description": "Apply pre-emergent (updated)"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["description"] == "Apply pre-emergent (updated)"
+
+    # Snooze
+    snoozed = await client.post(
+        f"/api/v1/reminders/{reminder_id}/snooze",
+        json={"new_due_date": "2026-06-15"},
+    )
+    assert snoozed.status_code == 200
+    assert snoozed.json()["due_date"] == "2026-06-15"
+
+    # Complete
+    completed = await client.post(f"/api/v1/reminders/{reminder_id}/complete", json={})
+    assert completed.status_code == 200
+    assert completed.json()["completed"] is True
+    assert completed.json()["completed_at"] is not None
+
+    # Double-complete should 400
+    double = await client.post(f"/api/v1/reminders/{reminder_id}/complete", json={})
+    assert double.status_code == 400
+
+    # Completed reminders show with ?completed=true
+    done = await client.get("/api/v1/reminders?completed=true")
+    assert len(done.json()) == 1
+
+    # Delete
+    deleted = await client.delete(f"/api/v1/reminders/{reminder_id}")
+    assert deleted.status_code == 204
+
+    # Gone
+    gone = await client.get(f"/api/v1/reminders/{reminder_id}")
+    assert gone.status_code == 404

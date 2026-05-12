@@ -126,14 +126,23 @@ export default async function Home() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Reminders</CardDescription>
-            <CardTitle className="text-sm">Upcoming</CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardDescription>Reminders</CardDescription>
+                <CardTitle className="text-sm">Upcoming</CardTitle>
+              </div>
+              <Button asChild variant="ghost" size="sm" className="text-xs">
+                <Link href="/reminders">View all</Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <p className="text-2xl font-semibold">{reminders.length}</p>
             <p className="text-muted-foreground">Active reminders</p>
             {reminders[0] && (
-              <p className="text-muted-foreground">Next: {prettyDate(reminders[0].due_date)}</p>
+              <p className="truncate text-muted-foreground">
+                Next: {prettyDate(reminders[0].due_date)} · {reminders[0].description}
+              </p>
             )}
           </CardContent>
         </Card>

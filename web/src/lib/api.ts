@@ -445,3 +445,58 @@ export async function deleteSoilTest(id: string) {
 export async function getDashboardSummary() {
   return apiRequest<DashboardSummary>("/api/v1/dashboard/summary");
 }
+
+// ─── Reminders ────────────────────────────────────────────────────────────────
+
+export type Reminder = {
+  id: string;
+  due_date: string;
+  reminder_type: string;
+  description: string;
+  completed: boolean;
+  completed_at: string | null;
+  completed_treatment_id: string | null;
+  completed_cultural_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReminderInput = {
+  due_date: string;
+  reminder_type: string;
+  description: string;
+};
+
+export async function listReminders(opts?: { completed?: boolean }) {
+  const params = opts?.completed !== undefined ? `?completed=${opts.completed}` : "";
+  return apiRequest<Reminder[]>(`/api/v1/reminders${params}`);
+}
+
+export async function createReminder(body: ReminderInput) {
+  return apiRequest<Reminder>("/api/v1/reminders", { method: "POST", body });
+}
+
+export async function patchReminder(id: string, body: Partial<ReminderInput>) {
+  return apiRequest<Reminder>(`/api/v1/reminders/${id}`, { method: "PATCH", body });
+}
+
+export async function completeReminder(
+  id: string,
+  opts?: { completed_treatment_id?: string; completed_cultural_id?: string },
+) {
+  return apiRequest<Reminder>(`/api/v1/reminders/${id}/complete`, {
+    method: "POST",
+    body: opts ?? {},
+  });
+}
+
+export async function snoozeReminder(id: string, new_due_date: string) {
+  return apiRequest<Reminder>(`/api/v1/reminders/${id}/snooze`, {
+    method: "POST",
+    body: { new_due_date },
+  });
+}
+
+export async function deleteReminder(id: string) {
+  return apiRequest<void>(`/api/v1/reminders/${id}`, { method: "DELETE" });
+}

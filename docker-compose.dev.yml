@@ -1,3 +1,15 @@
+# DEVELOPMENT overrides — always layer on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# What this does vs production:
+#   - Exposes db on host port 5433 for direct psql / test runner access
+#   - Mounts api/src, api/tests, api/alembic into the container (hot-reload via uvicorn --reload)
+#   - Mounts the entire web/ directory and runs `npm run dev` with hot-reload
+#   - Exposes api on port 8000 and web on port 3001 for direct browser access
+#   - Adds api-test service (pytest + source-mounted) for running the test suite
+#
+# Tests: ./ops/test.sh  (first-time: ./ops/init-test-db.sh)
+
 services:
   db:
     ports:
@@ -23,3 +35,25 @@ services:
       - /opt/apps/lawn/web:/app
     ports:
       - "3001:3000"
+
+  # Run with: ./ops/test.sh  (or docker compose run --rm api-test python -m pytest -q)
+  # Source is volume-mounted so no rebuild is needed after code changes.
+  # First-time setup: run ops/init-test-db.sh once to create lawn_test.
+  api-test:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: dev
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/lawn_test
+    volumes:
+      - /opt/apps/lawn/api/src:/app/src
+      - /opt/apps/lawn/api/tests:/app/tests
+      - /opt/apps/lawn/api/alembic:/app/alembic
+      - /opt/apps/lawn/api/alembic.ini:/app/alembic.ini
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - lawn-internal

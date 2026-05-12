@@ -1,3 +1,14 @@
+# PRODUCTION compose file — do NOT run directly with `docker compose up`.
+#
+# Operations scripts (always use these):
+#   ops/deploy.sh [api|web]   — rebuild images from source + redeploy (use after ANY code change)
+#   ops/reload-env.sh         — recreate containers to pick up .env changes (no rebuild)
+#   ops/init-test-db.sh       — create/reset the lawn_test DB used by the test suite
+#
+# Development (hot-reload):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   (mounts source into containers; web runs `npm run dev`, api runs uvicorn --reload)
+
 services:
   db:
     image: timescale/timescaledb:latest-pg16

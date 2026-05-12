@@ -6,6 +6,7 @@ from lawn_api.routers.irrigation_zone import router as irrigation_zone_router
 from lawn_api.routers.lawn_profile import router as lawn_profile_router
 from lawn_api.routers.product import router as product_router
 from lawn_api.routers.rachio import router as rachio_router
+from lawn_api.routers.reminder import router as reminder_router
 from lawn_api.routers.soil_test import router as soil_test_router
 from lawn_api.routers.treatment import router as treatment_router
 
@@ -18,6 +19,7 @@ __all__ = [
     "lawn_profile_router",
     "product_router",
     "rachio_router",
+    "reminder_router",
     "soil_test_router",
     "treatment_router",
 ]
