@@ -1,6 +1,6 @@
 # Lawn Command Center
 
-Personal lawn care logbook and dashboard for a TTTF lawn in Topeka, KS. Tracks treatments, cultural practices, irrigation, weather, soil tests, and reminders. Served on the LAN at `lawn.home.daber.co`.
+Personal lawn care logbook and dashboard for a TTTF lawn in Topeka, KS. Tracks treatments, cultural practices, irrigation, weather, soil tests, and reminders. Designed for self-hosted LAN deployment behind a reverse proxy.
 
 ## Decision docs
 
