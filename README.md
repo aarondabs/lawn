@@ -8,6 +8,10 @@ Personal lawn care logbook and dashboard for a TTTF lawn in Topeka, KS. Tracks t
 - Homelab integration requirements: `docs/PLATFORM_DEPS.md`
 - Planned delivery phases: `docs/ROADMAP.md`
 
+## Operations
+
+For runtime gotchas, deployment workflows, component conventions, and known-working patterns, see `docs/OPERATIONS.md`.
+
 The original cross-repo handoff remains in the homelab repository as platform history. This repo keeps an app-focused summary so contributors do not need access to private infrastructure docs.
 
 ## Security-first workflow
