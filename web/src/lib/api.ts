@@ -43,6 +43,13 @@ export async function apiRequest<TResponse, TBody = unknown>(
     next,
   });
 
+  if (response.status === 204) {
+    if (!response.ok) {
+      throw new ApiError(`API request failed: ${method} ${path}`, response.status, "");
+    }
+    return undefined as TResponse;
+  }
+
   const contentType = response.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");
   const payload = isJson ? await response.json() : await response.text();

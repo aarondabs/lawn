@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -44,14 +45,31 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  asChild = false,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
+  // base-ui uses `render` prop instead of `asChild`. When asChild is true, pull
+  // the child element out as the render target and pass its children through.
+  const renderEl =
+    asChild && React.isValidElement(children)
+      ? React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+          children: undefined,
+        })
+      : undefined;
+
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      render={renderEl}
+      nativeButton={!asChild}
       {...props}
-    />
+    >
+      {renderEl
+        ? (children as React.ReactElement<{ children?: React.ReactNode }>).props.children
+        : children}
+    </ButtonPrimitive>
   )
 }
 

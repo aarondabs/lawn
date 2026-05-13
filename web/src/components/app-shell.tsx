@@ -67,13 +67,13 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
         </aside>
 
-        <main className="min-h-[calc(100vh-3.5rem)] p-4 pb-36 md:p-6 md:pb-6">{children}</main>
+        <main className="min-h-[calc(100vh-3.5rem)] p-4 pb-28 md:p-6 md:pb-6">{children}</main>
       </div>
 
       <QuickLogFab />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background md:hidden">
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {navItems.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
