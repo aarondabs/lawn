@@ -1,6 +1,6 @@
-# Lawn
+# Lawn Command Center
 
-Initial scaffold for a public app repository with local-only server secrets.
+Personal lawn care logbook and dashboard for a TTTF lawn in Topeka, KS. Tracks treatments, cultural practices, irrigation, weather, soil tests, and reminders. Served on the LAN at `lawn.home.daber.co`.
 
 ## Decision docs
 
