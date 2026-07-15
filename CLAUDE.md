@@ -112,8 +112,11 @@ Verify against code before trusting `docs/`. Confirmed wrong today:
 - `README.md` — points test guards at `api/tests/test_health_placeholder.py`, which doesn't exist
   (they're in `test_api.py` + `conftest.py`); and suggests running pytest on the host, which
   `OPERATIONS.md` explicitly forbids.
-- `DATA_MODEL.md` — cites `docs/agent-handoffs/*`; that directory was deleted. All those links are
-  dead.
+- `DATA_MODEL.md` — cites `docs/agent-handoffs/TASK_4_SCHEMA_DECISIONS.md` and
+  `PHASE_1_5_TANK_MIXES_AND_PRODUCTS.md` as unqualified paths, so they read as lawn-relative and
+  resolve to nothing. Those files are real but live in the **homelab** repo, which is private —
+  meaning every schema decision's cited source is unreachable to anyone outside it. Either
+  re-qualify the references as cross-repo or port the decisions into this repo.
 - `ROADMAP.md` — still marks Phase 1 "Current"; Phase 1.5 shipped.
 - `BACKLOG.md` — calls the Phase 3 AI assistant "already planned". It is **named, not designed**:
   the entire spec is three bullets in `ROADMAP.md` (recommendations from recorded history,
