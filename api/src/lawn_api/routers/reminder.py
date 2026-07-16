@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -89,7 +89,7 @@ async def complete_reminder(
             raise HTTPException(status_code=400, detail="completed_cultural_id does not exist")
 
     reminder.completed = True
-    reminder.completed_at = datetime.now(tz=timezone.utc)
+    reminder.completed_at = datetime.now(tz=UTC)
     reminder.completed_treatment_id = payload.completed_treatment_id
     reminder.completed_cultural_id = payload.completed_cultural_id
 

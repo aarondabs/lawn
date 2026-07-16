@@ -11,7 +11,6 @@ Convention notes:
 - All timestamps are UTC (timestamptz).
 """
 
-import uuid
 
 from sqlalchemy import (
     Boolean,
@@ -23,7 +22,6 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
-    String,
     Text,
     UniqueConstraint,
     func,
@@ -48,7 +46,6 @@ from lawn_api.models.constants import (
     TREATMENT_APPLICATORS,
     WATER_SOURCES,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

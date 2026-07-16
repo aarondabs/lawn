@@ -25,6 +25,9 @@ services:
       - /opt/apps/lawn/api/tests:/app/tests
       - /opt/apps/lawn/api/alembic:/app/alembic
       - /opt/apps/lawn/api/alembic.ini:/app/alembic.ini
+      # pyproject holds live config (ruff, pytest asyncio_mode). Mount it so config changes take
+      # effect without an image rebuild, like source changes do.
+      - /opt/apps/lawn/api/pyproject.toml:/app/pyproject.toml
     ports:
       - "8000:8000"
 
@@ -54,6 +57,8 @@ services:
       - /opt/apps/lawn/api/tests:/app/tests
       - /opt/apps/lawn/api/alembic:/app/alembic
       - /opt/apps/lawn/api/alembic.ini:/app/alembic.ini
+      # See the api service: pyproject holds live pytest/ruff config.
+      - /opt/apps/lawn/api/pyproject.toml:/app/pyproject.toml
     depends_on:
       db:
         condition: service_healthy

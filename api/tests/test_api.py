@@ -1,5 +1,5 @@
 import os
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -176,7 +176,7 @@ async def test_cultural_practice_crud_flow(client: AsyncClient) -> None:
     created = await client.post(
         "/api/v1/cultural-practices",
         json={
-            "performed_at": datetime.now(timezone.utc).isoformat(),
+            "performed_at": datetime.now(UTC).isoformat(),
             "practice_type": "mow",
         },
     )
@@ -236,7 +236,7 @@ async def test_treatment_crud_flow(client: AsyncClient) -> None:
     created = await client.post(
         "/api/v1/treatments",
         json={
-            "applied_at": datetime.now(timezone.utc).isoformat(),
+            "applied_at": datetime.now(UTC).isoformat(),
             "products": [
                 {
                     "product_id": herbicide.json()["id"],
@@ -568,7 +568,7 @@ async def test_rachio_poll_parses_summary_zone_events(
                 "type": "ZONE_STATUS",
                 "subType": "ZONE_COMPLETED",
                 "summary": "Zone 13 completed watering at 10:11 AM (CDT) for 16 minutes.",
-                "eventDate": int((datetime.now(timezone.utc) - timedelta(days=2)).timestamp() * 1000),
+                "eventDate": int((datetime.now(UTC) - timedelta(days=2)).timestamp() * 1000),
             }
         ]
 

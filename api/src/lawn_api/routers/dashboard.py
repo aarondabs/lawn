@@ -5,15 +5,13 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from lawn_api.db import get_db
 from sqlalchemy.orm import selectinload
 
+from lawn_api.db import get_db
 from lawn_api.models.entities import (
     CulturalPractice,
     IrrigationEvent,
     IrrigationZone,
-    Product,
     Reminder,
     SoilTest,
     Treatment,

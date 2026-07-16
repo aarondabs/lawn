@@ -24,3 +24,36 @@ dev = [
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+# 120 matches how this code is already written (longest existing line is 118). Set to 100 and the
+# linter fails on 14 pre-existing lines from day one — and a linter that always fails gets ignored.
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv", "alembic/versions"]
+
+[tool.ruff.lint]
+# Deliberately close to ruff's defaults plus the rules that catch real bugs here.
+#   E,F  pycodestyle + pyflakes (the default set)
+#   I    import sorting
+#   UP   pyupgrade — keep 3.12 idioms
+#   B    bugbear — catches mutable defaults, and B008 (function call in default arg),
+#        which FastAPI's Depends()/Query() legitimately require, so it's ignored below
+#   ASYNC async-specific footguns (blocking calls inside async def)
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = [
+  # FastAPI's dependency-injection idiom IS a function call in an argument default.
+  "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic migrations are generated and intentionally repetitive.
+"alembic/*" = ["E501"]
+# Tests may shadow fixtures and use long descriptive names.
+"tests/*" = ["E501"]
+
+[tool.pytest.ini_options]
+# Without this, an async test missing @pytest.mark.asyncio is silently skipped rather than
+# failing — a test that never runs but reports green. auto mode makes async tests just work.
+asyncio_mode = "auto"
+testpaths = ["tests"]

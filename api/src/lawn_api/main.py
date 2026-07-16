@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from lawn_api.db import AsyncSessionLocal
 from lawn_api.routers import (

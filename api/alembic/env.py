@@ -1,14 +1,14 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import lawn_api.models  # noqa: F401 — registers all model metadata with Base
+from alembic import context
 from lawn_api.config import settings
 from lawn_api.db import Base
-import lawn_api.models  # noqa: F401 — registers all model metadata with Base
 
 # Alembic Config object, providing access to .ini values
 config = context.config

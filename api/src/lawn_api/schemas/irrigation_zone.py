@@ -6,9 +6,9 @@ from pydantic import BaseModel, ConfigDict
 
 from lawn_api.models.constants import (
     IRRIGATION_HEAD_TYPES,
-    IRRIGATION_ZONE_CATEGORIES,
     IRRIGATION_SLOPES,
     IRRIGATION_SUN_EXPOSURES,
+    IRRIGATION_ZONE_CATEGORIES,
     SOIL_TYPES,
 )
 
