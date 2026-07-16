@@ -146,10 +146,14 @@ See `README.md` for the full testing workflow including `TEST_DATABASE_URL` usag
 
 ## Caddy reverse proxy and DNS
 
-The app is served at `lawn.home.daber.co`. DNS and reverse-proxy configuration live in the **homelab repo** (`/opt/docker/`), not this repo.
+The app is served behind a reverse proxy at an internal hostname. **The specific hostname, DNS, and
+Caddy config live in the private homelab repo, not here** — this repo is meant to be publishable, so
+it doesn't name the internal domain. See `PLATFORM_DEPS.md` for the contract this app depends on.
 
-- DNS: Pi-hole CNAME `lawn.home.daber.co` → `mediaserver.home.daber.co` (the NUC's LAN IP).
-- Caddy: block in `/opt/docker/proxy/Caddyfile` — `reverse_proxy lawn-web:3000`.
-- TLS: handled automatically by Caddy via ACME DNS-01 challenge to Route53.
+- The reverse proxy routes the app hostname to `lawn-web:3000` over the shared `homelab` network.
+- TLS is handled by the proxy (ACME).
+- If you run the dev server behind that hostname, set `NEXT_ALLOWED_DEV_ORIGINS` in `.env` (see
+  `.env.example`) so `next dev` accepts the cross-origin request.
 
-To modify the reverse proxy entry or add a new hostname, edit the Caddyfile in the homelab repo and reload Caddy. Do not modify this repo for DNS/proxy changes.
+To change the proxy entry or hostname, edit the homelab repo's Caddyfile and reload Caddy. Do not
+modify this repo for DNS/proxy changes.

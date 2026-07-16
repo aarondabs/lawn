@@ -36,6 +36,9 @@ services:
     working_dir: /app
     environment:
       NODE_ENV: development
+      # Allow the reverse-proxy hostname to reach `next dev` cross-origin. Real value in .env;
+      # empty is fine for localhost-only development.
+      NEXT_ALLOWED_DEV_ORIGINS: ${NEXT_ALLOWED_DEV_ORIGINS:-}
     volumes:
       - /opt/apps/lawn/web:/app
     ports:
