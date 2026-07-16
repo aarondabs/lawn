@@ -17,17 +17,16 @@ workspace `CLAUDE.md` above this repo; don't copy that content here.
   **`@base-ui/react`**. Installed with **`npm install`**; `package-lock.json` is the lockfile.
 - **DB** — `timescale/timescaledb:latest-pg16`, plus `pgcrypto`.
 
-`docs/ARCHITECTURE.md` claims "uv (backend), pnpm (frontend)". **That is false** — it's pip and
-npm. Several docs have drifted; see "Known doc drift" below.
-
 ## Commands
 
-Everything goes through Docker. Don't run `pytest`/`alembic` against the host Python.
+Everything goes through Docker. Don't run `pytest`/`ruff`/`alembic` against the host Python — the
+containers own the environment.
 
 ```bash
 ./ops/deploy.sh [service...]      # prod: build -> up -d -> alembic upgrade head -> ps
 ./ops/init-test-db.sh             # first run, and after any schema change
 ./ops/test.sh [-k pattern] [-x]   # pytest in the api-test container
+./ops/lint.sh [--fix] [api|web]   # ruff (API) + eslint + tsc (web)
 ./ops/reload-env.sh [all|svc...]  # .env changes need --force-recreate, NOT docker restart
 ./ops/backup-db.sh                # take before any manual schema work
 ```
@@ -53,6 +52,10 @@ Never `docker compose up` with the prod file alone by hand — use `ops/deploy.s
 - The dev overlay **must** set `NODE_ENV: development` or every route 500s.
 - The dev overlay bind-mounts **absolute host paths**. If the daemon can't resolve them, you get
   silently-empty mounts rather than an error.
+- **Config files that hold tool config must be mounted to take effect in dev.** `api/pyproject.toml`
+  (ruff + pytest config) is bind-mounted into `api`/`api-test` for exactly this reason — otherwise a
+  config change is invisible until the image is rebuilt, and e.g. `asyncio_mode` silently reverts to
+  strict. If you add tool config to a file not already mounted, mount it too.
 
 ## Data model rules
 
@@ -73,18 +76,20 @@ Never `docker compose up` with the prod file alone by hand — use `ops/deploy.s
 run unless `APP_ENV=test` (or `LAWN_ALLOW_DESTRUCTIVE_TESTS=1`) and refuse to TRUNCATE a DB named
 `lawn` or `postgres`. `api/tests/conftest.py` rewrites `DATABASE_URL` → `*_test`.
 
-No `asyncio_mode` is configured — async tests need an explicit `@pytest.mark.asyncio` and
-`@pytest_asyncio.fixture`, or they silently misbehave.
+`asyncio_mode = "auto"` is set in `api/pyproject.toml`, so async tests run without a per-test
+marker. (Verify with `mode=Mode.AUTO` in the pytest header — if it says STRICT, the pyproject mount
+is missing and a markerless async test would silently skip.)
 
-## Lint / typecheck — mostly absent
+## Lint / typecheck
 
-- **API**: ruff is a dev dep but has **no config section and no documented command**. Effective:
-  `cd api && ./.venv/bin/ruff check .`. No mypy/pyright, no pre-commit, no CI.
-- **Web**: `npm run lint` → `next lint`, configured via **legacy `.eslintrc.json` under ESLint 9**
-  (no flat config). `next lint` is deprecated in Next 15.5 and gone in 16 — this breaks on the next
-  major. **No typecheck script**; type errors only surface via `next build`. No formatter.
-
-Match surrounding style rather than introducing a formatter unasked.
+- **One entry point:** `./ops/lint.sh` (add `--fix` to autofix, or `api`/`web` to scope).
+- **API**: ruff, config in `[tool.ruff]` of `api/pyproject.toml` (line-length 120, rules
+  `E,F,I,UP,B,ASYNC`, `B008` ignored for FastAPI's `Depends()`). No mypy/pyright yet.
+- **Web**: ESLint 9 **flat config** (`web/eslint.config.mjs`, via `FlatCompat` wrapping
+  `next/core-web-vitals` + `next/typescript`); `npm run lint` is `eslint .`, not the deprecated
+  `next lint`. `npm run typecheck` is `tsc --noEmit`. No Prettier — match surrounding style rather
+  than introducing a formatter unasked.
+- No CI yet; `ops/lint.sh` + `ops/test.sh` are the gates, run them before committing.
 
 ## Secrets
 
@@ -92,8 +97,9 @@ Real values only in gitignored files: `.env`, `.env.*` (except `.env.example`), 
 `ops/private/`, `docker-compose.override.yml`, certs/keys. `.env.example` is the contract for
 required vars. Review `git status` and `git diff --staged` before any push.
 
-Note: `api/.env` is currently byte-identical to the root `.env`, and `config.py` loads `.env`
-relative to CWD — so which one wins depends on where you run from. Silent divergence hazard.
+`config.py` loads `.env` relative to CWD; the single root `.env` is the one the ops scripts and
+compose use. (There used to be a duplicate `api/.env` — a divergence hazard — now removed; the
+container never read it anyway.)
 
 ## Commits
 
@@ -104,26 +110,24 @@ Conventional style (`feat:`, `fix:`, `docs:`).
 lines, no attribution comments in code, docs, or PR bodies. Deliberate override of the default;
 don't reintroduce it.
 
-## Known doc drift
+## Phase 3 (AI assistant) — named, not designed
 
-Verify against code before trusting `docs/`. Confirmed wrong today:
+This is the stated end goal of the project, and it's the most likely next body of work — so know
+where it actually stands. The entire spec is three bullets in `docs/ROADMAP.md`: recommendations
+from recorded history; explainable reasoning over weather/irrigation/treatment data; human approval
+required for any recommended action. There is **no** model, provider, prompt, tool, RAG, or schema
+decision yet. `.env.example` reserves an unused `ANTHROPIC_API_KEY`. Starting it is a design task
+from near-zero. When building against Claude, read the `claude-api` skill first for current model
+IDs and patterns.
 
-- `ARCHITECTURE.md` — "uv / pnpm" (it's pip / npm).
-- `README.md` — points test guards at `api/tests/test_health_placeholder.py`, which doesn't exist
-  (they're in `test_api.py` + `conftest.py`); and suggests running pytest on the host, which
-  `OPERATIONS.md` explicitly forbids.
-- `DATA_MODEL.md` — cites `docs/agent-handoffs/TASK_4_SCHEMA_DECISIONS.md` and
-  `PHASE_1_5_TANK_MIXES_AND_PRODUCTS.md` as unqualified paths, so they read as lawn-relative and
-  resolve to nothing. Those files are real but live in the **homelab** repo, which is private —
-  meaning every schema decision's cited source is unreachable to anyone outside it. Either
-  re-qualify the references as cross-repo or port the decisions into this repo.
-- `ROADMAP.md` — still marks Phase 1 "Current"; Phase 1.5 shipped.
-- `BACKLOG.md` — calls the Phase 3 AI assistant "already planned". It is **named, not designed**:
-  the entire spec is three bullets in `ROADMAP.md` (recommendations from recorded history,
-  explainable reasoning over weather/irrigation/treatment data, human approval required for any
-  recommended action). No model, provider, prompt, tool, or schema decisions exist yet.
-- `OPERATIONS.md` and `web/next.config.mjs` still contain an internal domain, contradicting this
-  repo's own no-internal-details rule.
-- `web/components.json` references `tailwind.config.ts`, which doesn't exist (Tailwind v4).
-- `ntfy` is a hard dependency — `api/src/lawn_api/services/notifications.py` hardcodes a service
-  URL — but it's absent from `docs/PLATFORM_DEPS.md` and isn't configurable by env.
+## Remaining known gaps
+
+Verify against code before trusting `docs/`. Most 2026-07-15 drift was fixed; what's left:
+
+- `docs/DATA_MODEL.md` cites `docs/agent-handoffs/TASK_4_SCHEMA_DECISIONS.md` and
+  `PHASE_1_5_TANK_MIXES_AND_PRODUCTS.md` as unqualified paths. Those files are real but live in the
+  **private homelab** repo, so the citations resolve to nothing from here and are unreachable to
+  anyone outside it. Decide: port the schema-decision history into this repo (making it
+  self-contained and publishable), or re-qualify the references as deliberately private.
+- `ntfy` push is hardcoded (`api/src/lawn_api/services/notifications.py` → `http://ntfy/lawn-alerts`),
+  not env-configurable. Documented in `PLATFORM_DEPS.md`; making it an env var is a backlog item.

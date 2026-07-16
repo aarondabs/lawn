@@ -26,7 +26,11 @@ Captured candidates and ideas. **This is a parking lot, not a roadmap.** Items h
 
 ## Long-term / not yet evaluated
 
-- AI assistant (Phase 3 — already planned).
+- AI assistant (Phase 3 — **named, not designed**). The entire spec today is three bullets in
+  `docs/ROADMAP.md`: recommendations from recorded history; explainable reasoning over
+  weather/irrigation/treatment data; human approval required for any recommended action. No model,
+  provider, prompt, tool, RAG, or schema decisions exist yet. `.env.example` reserves an unused
+  `ANTHROPIC_API_KEY`. Starting this is a design task from near-zero, not a build task.
 - Soil test PDF parsing (Phase 4 candidate).
 - Photo logging for problem-area documentation.
 - Hyperlocal weather station integration (Tempest, Ambient, Davis).

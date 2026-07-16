@@ -63,21 +63,24 @@ When you update `.env`, a plain container restart is not enough. Recreate the co
 
 ## Safe testing workflow
 
-Tests are configured to run against a dedicated test database, not the live app database.
+Tests run against a dedicated `lawn_test` database, not the live app database, inside the
+container — **do not run pytest directly on the host** (see `docs/OPERATIONS.md`).
 
-1. Initialize or migrate the test DB:
+1. Initialize or migrate the test DB (first run, and after any schema change):
 	`./ops/init-test-db.sh`
 2. Run tests:
-	`cd api && ./.venv/bin/pytest -q`
+	`./ops/test.sh`  (accepts pytest args, e.g. `./ops/test.sh -k reminder -x`)
 
-If you run tests from the host shell, set `TEST_DATABASE_URL` to the host-exposed DB port, for example:
+Test safety guards live in `api/tests/test_api.py` (the fixture) and `api/tests/conftest.py`
+(which rewrites `DATABASE_URL` → the `*_test` database):
 
-`TEST_DATABASE_URL=postgresql+psycopg://lawn:<password>@localhost:5433/lawn_test ./.venv/bin/pytest -q`
+- The fixture refuses to run unless `APP_ENV=test` (or `LAWN_ALLOW_DESTRUCTIVE_TESTS=1`).
+- It refuses to truncate a DB named `lawn` or `postgres` unless explicitly overridden.
 
-Test safety guards are enforced in `api/tests/test_health_placeholder.py`:
+## Lint and typecheck
 
-- Destructive fixture logic refuses to run unless `APP_ENV=test` or an explicit override is set.
-- It also refuses to truncate `lawn` or `postgres` DB names unless explicitly overridden.
+	`./ops/lint.sh`         # ruff (API) + eslint + tsc (web)
+	`./ops/lint.sh --fix`   # apply ruff/eslint autofixes
 
 ## Database backups
 
