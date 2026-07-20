@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductDetailClient } from "../_components/product-detail-client";
-import { rateUnitLabel } from "@/lib/enums";
+import { amountUnitLabel, rateUnitLabel } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Product Detail" };
 
@@ -66,9 +66,24 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <CardHeader><CardTitle className="text-base">Inventory</CardTitle></CardHeader>
           <CardContent>
             {product.current_inventory != null ? (
-              <p className="text-2xl font-semibold">
-                {product.current_inventory} <span className="text-base font-normal text-muted-foreground">{rateUnitLabel(product.current_inventory_unit ?? "")}</span>
-              </p>
+              <>
+                <p
+                  className={`text-2xl font-semibold ${
+                    product.current_inventory < 0 ? "text-destructive" : ""
+                  }`}
+                >
+                  {product.current_inventory}{" "}
+                  <span className="text-base font-normal text-muted-foreground">
+                    {amountUnitLabel(product.current_inventory_unit ?? "")}
+                  </span>
+                </p>
+                {product.current_inventory < 0 && (
+                  <p className="mt-2 text-sm text-destructive">
+                    Negative stock — a restock probably went unlogged. Treatments are never blocked
+                    on inventory, so this just needs reconciling.
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">Not tracked</p>
             )}
