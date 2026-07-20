@@ -11,7 +11,6 @@ Convention notes:
 - All timestamps are UTC (timestamptz).
 """
 
-
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -32,6 +31,9 @@ from sqlalchemy.orm import relationship
 
 from lawn_api.db import Base
 from lawn_api.models.constants import (
+    AMOUNT_UNITS,
+    APPLICATION_METHODS,
+    CALIBRATED_RATE_UNITS,
     CULTURAL_PRACTICE_TYPES,
     EQUIPMENT_TYPES,
     IRRIGATION_EVENT_SOURCES,
@@ -39,6 +41,7 @@ from lawn_api.models.constants import (
     IRRIGATION_SLOPES,
     IRRIGATION_SUN_EXPOSURES,
     IRRIGATION_ZONE_CATEGORIES,
+    MIX_VOLUME_UNITS,
     PRODUCT_TYPES,
     RATE_UNITS,
     REMINDER_TYPES,
@@ -51,6 +54,7 @@ from lawn_api.models.constants import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _sql_in(values: tuple[str, ...]) -> str:
     """Return a SQL IN-list string for a CHECK constraint."""
     return ", ".join(f"'{v}'" for v in values)
@@ -59,6 +63,7 @@ def _sql_in(values: tuple[str, ...]) -> str:
 # ---------------------------------------------------------------------------
 # lawn_profile - singleton row representing Aaron's lawn
 # ---------------------------------------------------------------------------
+
 
 class LawnProfile(Base):
     __tablename__ = "lawn_profile"
@@ -101,6 +106,7 @@ class LawnProfile(Base):
 # ---------------------------------------------------------------------------
 # irrigation_zone
 # ---------------------------------------------------------------------------
+
 
 class IrrigationZone(Base):
     __tablename__ = "irrigation_zone"
@@ -159,6 +165,7 @@ class IrrigationZone(Base):
 # equipment
 # ---------------------------------------------------------------------------
 
+
 class Equipment(Base):
     __tablename__ = "equipment"
     __table_args__ = (
@@ -192,6 +199,7 @@ class Equipment(Base):
 # product
 # ---------------------------------------------------------------------------
 
+
 class Product(Base):
     __tablename__ = "product"
     __table_args__ = (
@@ -204,7 +212,10 @@ class Product(Base):
             name="product_label_rate_unit_check",
         ),
         CheckConstraint(
-            f"current_inventory_unit IS NULL OR current_inventory_unit IN ({_sql_in(RATE_UNITS)})",
+            # Inventory is a QUANTITY on the shelf, so it takes amount units. This
+            # previously reused RATE_UNITS, which made "0 lb_per_1000 in stock" the
+            # only expressible value -- meaningless, and unusable for decrement.
+            f"current_inventory_unit IS NULL OR current_inventory_unit IN ({_sql_in(AMOUNT_UNITS)})",
             name="product_current_inventory_unit_check",
         ),
         CheckConstraint(
@@ -238,11 +249,13 @@ class Product(Base):
     )
 
     treatment_products = relationship("TreatmentProduct", back_populates="product")
+    fill_products = relationship("FillProduct", back_populates="product")
 
 
 # ---------------------------------------------------------------------------
 # treatment
 # ---------------------------------------------------------------------------
+
 
 class Treatment(Base):
     __tablename__ = "treatment"
@@ -251,10 +264,17 @@ class Treatment(Base):
             f"applicator IN ({_sql_in(TREATMENT_APPLICATORS)})",
             name="treatment_applicator_check",
         ),
+        CheckConstraint(
+            f"application_method IN ({_sql_in(APPLICATION_METHODS)})",
+            name="treatment_application_method_check",
+        ),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     applied_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    # Determines which child structure carries the product detail: 'granular'
+    # uses treatment_product, 'liquid' uses tank_fill/fill_product.
+    application_method = Column(Text, nullable=False)
     area_treated_sqft = Column(Integer, nullable=False)
     equipment_id = Column(UUID(as_uuid=True), ForeignKey("equipment.id"), nullable=True)
     applicator = Column(Text, nullable=False)
@@ -279,6 +299,12 @@ class Treatment(Base):
         cascade="all, delete-orphan",
         order_by="TreatmentProduct.position",
     )
+    fills = relationship(
+        "TankFill",
+        back_populates="treatment",
+        cascade="all, delete-orphan",
+        order_by="TankFill.fill_number",
+    )
     reminders = relationship(
         "Reminder",
         foreign_keys="Reminder.completed_treatment_id",
@@ -289,6 +315,7 @@ class Treatment(Base):
 # ---------------------------------------------------------------------------
 # treatment_product (join table for tank mixes)
 # ---------------------------------------------------------------------------
+
 
 class TreatmentProduct(Base):
     __tablename__ = "treatment_product"
@@ -319,8 +346,111 @@ class TreatmentProduct(Base):
 
 
 # ---------------------------------------------------------------------------
+# tank_fill - one sprayer tank for a liquid treatment
+# ---------------------------------------------------------------------------
+
+
+class TankFill(Base):
+    """A single tank of mixed solution within a liquid treatment.
+
+    Fills are first-class rather than summed into a flat total, because they
+    genuinely differ -- running a couple of ounces short on the last fill is
+    normal, and inventory decrement needs the real per-fill amounts.
+
+    Area is derived (volume / calibrated rate), never entered. The calibrated
+    rate is snapshotted so recalibrating the sprayer does not silently rewrite
+    history, mirroring irrigation_event.precip_rate_in_per_hr_snapshot.
+    """
+
+    __tablename__ = "tank_fill"
+    __table_args__ = (
+        UniqueConstraint("treatment_id", "fill_number", name="tank_fill_treatment_fill_number_uniq"),
+        CheckConstraint(
+            f"total_mix_volume_unit IN ({_sql_in(MIX_VOLUME_UNITS)})",
+            name="tank_fill_total_mix_volume_unit_check",
+        ),
+        CheckConstraint(
+            f"calibrated_rate_unit_snapshot IN ({_sql_in(CALIBRATED_RATE_UNITS)})",
+            name="tank_fill_calibrated_rate_unit_snapshot_check",
+        ),
+        CheckConstraint("total_mix_volume > 0", name="tank_fill_total_mix_volume_positive"),
+        CheckConstraint("calibrated_rate_snapshot > 0", name="tank_fill_calibrated_rate_positive"),
+        CheckConstraint("fill_number > 0", name="tank_fill_fill_number_positive"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    treatment_id = Column(UUID(as_uuid=True), ForeignKey("treatment.id", ondelete="CASCADE"), nullable=False)
+    fill_number = Column(Integer, nullable=False)
+    total_mix_volume = Column(Numeric, nullable=False)
+    total_mix_volume_unit = Column(Text, nullable=False, server_default=text("'gal'"))
+    calibrated_rate_snapshot = Column(Numeric, nullable=False)
+    calibrated_rate_unit_snapshot = Column(Text, nullable=False, server_default=text("'gal_per_1000'"))
+    # Computed in the service layer on write (see services/units.area_covered_sqft)
+    # rather than as a GENERATED column, which could not handle unit conversion.
+    area_covered_sqft = Column(Numeric, nullable=False)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    treatment = relationship("Treatment", back_populates="fills")
+    products = relationship(
+        "FillProduct",
+        back_populates="fill",
+        cascade="all, delete-orphan",
+    )
+
+
+# ---------------------------------------------------------------------------
+# fill_product - what actually went into one tank fill
+# ---------------------------------------------------------------------------
+
+
+class FillProduct(Base):
+    """Ground truth for a liquid application: the amount poured into a fill.
+
+    Unlike treatment_product (which records a rate and derives the amount), this
+    records the measured amount directly. Effective rate is derived from it and
+    the fill's covered area.
+    """
+
+    __tablename__ = "fill_product"
+    __table_args__ = (
+        CheckConstraint(
+            f"amount_used_unit IN ({_sql_in(AMOUNT_UNITS)})",
+            name="fill_product_amount_used_unit_check",
+        ),
+        CheckConstraint("amount_used > 0", name="fill_product_amount_used_positive"),
+        Index("ix_fill_product_product_id", "product_id"),
+    )
+
+    tank_fill_id = Column(UUID(as_uuid=True), ForeignKey("tank_fill.id", ondelete="CASCADE"), primary_key=True)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("product.id", ondelete="RESTRICT"), primary_key=True)
+    amount_used = Column(Numeric, nullable=False)
+    amount_used_unit = Column(Text, nullable=False)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    fill = relationship("TankFill", back_populates="products")
+    product = relationship("Product", back_populates="fill_products")
+
+
+# ---------------------------------------------------------------------------
 # cultural_practice
 # ---------------------------------------------------------------------------
+
 
 class CulturalPractice(Base):
     __tablename__ = "cultural_practice"
@@ -357,6 +487,7 @@ class CulturalPractice(Base):
 # ---------------------------------------------------------------------------
 # soil_test
 # ---------------------------------------------------------------------------
+
 
 class SoilTest(Base):
     __tablename__ = "soil_test"
@@ -395,6 +526,7 @@ class SoilTest(Base):
 # weather_forecast
 # ---------------------------------------------------------------------------
 
+
 class WeatherForecast(Base):
     __tablename__ = "weather_forecast"
     __table_args__ = (
@@ -430,6 +562,7 @@ class WeatherForecast(Base):
 # reminder
 # ---------------------------------------------------------------------------
 
+
 class Reminder(Base):
     __tablename__ = "reminder"
     __table_args__ = (
@@ -445,12 +578,8 @@ class Reminder(Base):
     description = Column(Text, nullable=False)
     completed = Column(Boolean, nullable=False, server_default=text("false"))
     completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    completed_treatment_id = Column(
-        UUID(as_uuid=True), ForeignKey("treatment.id"), nullable=True
-    )
-    completed_cultural_id = Column(
-        UUID(as_uuid=True), ForeignKey("cultural_practice.id"), nullable=True
-    )
+    completed_treatment_id = Column(UUID(as_uuid=True), ForeignKey("treatment.id"), nullable=True)
+    completed_cultural_id = Column(UUID(as_uuid=True), ForeignKey("cultural_practice.id"), nullable=True)
 
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
@@ -478,6 +607,7 @@ class Reminder(Base):
 # Partitioning column: observed_at.
 # ---------------------------------------------------------------------------
 
+
 class WeatherObservation(Base):
     __tablename__ = "weather_observation"
     # source is open-ended by design (openmeteo, personal weather station, etc.)
@@ -501,6 +631,7 @@ class WeatherObservation(Base):
 # PK: (started_at, zone_id). No UUID.
 # Partitioning column: started_at.
 # ---------------------------------------------------------------------------
+
 
 class IrrigationEvent(Base):
     __tablename__ = "irrigation_event"

@@ -54,6 +54,30 @@ RATE_UNITS = (
 # Tank mixes with only these units are invalid.
 NON_AREA_RATE_UNITS = ("fl_oz_per_gal", "pct_vv")
 
+# Amount units describe a QUANTITY of product (what is on the shelf, what went
+# into a tank), as opposed to RATE_UNITS which describe a quantity per area.
+# Conversions live in lawn_api.services.units.
+AMOUNT_UNITS = (
+    # volume
+    "fl_oz",
+    "pt",
+    "qt",
+    "gal",
+    # weight
+    "oz",
+    "lb",
+)
+
+# How a treatment was put down. Determines which child structure is populated:
+# 'granular' uses treatment_product, 'liquid' uses tank_fill/fill_product.
+APPLICATION_METHODS = ("granular", "liquid", "other")
+
+# Tank/mix volume units for a single sprayer fill.
+MIX_VOLUME_UNITS = ("gal", "l")
+
+# Sprayer calibration is expressed as solution volume per unit area.
+CALIBRATED_RATE_UNITS = ("gal_per_1000", "fl_oz_per_1000")
+
 TREATMENT_APPLICATORS = ("self", "spouse", "lawn_service", "other")
 
 # Mow detail values. These live in cultural_practice.details (JSONB), so there is

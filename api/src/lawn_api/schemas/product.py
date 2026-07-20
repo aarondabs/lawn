@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from lawn_api.models.constants import PRODUCT_TYPES, RATE_UNITS
+from lawn_api.models.constants import AMOUNT_UNITS, PRODUCT_TYPES, RATE_UNITS
 
 
 class ProductCreate(BaseModel):
@@ -20,7 +20,7 @@ class ProductCreate(BaseModel):
     max_annual_rate: float | None = None
     max_annual_rate_unit: Literal[*RATE_UNITS] | None = None
     current_inventory: float | None = None
-    current_inventory_unit: Literal[*RATE_UNITS] | None = None
+    current_inventory_unit: Literal[*AMOUNT_UNITS] | None = None
     notes: str | None = None
 
 
@@ -37,7 +37,7 @@ class ProductPatch(BaseModel):
     max_annual_rate: float | None = None
     max_annual_rate_unit: Literal[*RATE_UNITS] | None = None
     current_inventory: float | None = None
-    current_inventory_unit: Literal[*RATE_UNITS] | None = None
+    current_inventory_unit: Literal[*AMOUNT_UNITS] | None = None
     notes: str | None = None
 
 
