@@ -105,13 +105,93 @@ Composite PK: `(treatment_id, product_id)`.
 Valid `rate_unit` values: `lb_per_1000`, `oz_per_1000`, `fl_oz_per_1000`, `gal_per_1000`,
 `fl_oz_per_gal`, `pct_vv`, `lb_per_acre`.
 
-`total_amount` is intentionally omitted — it is computed at API serialization time:
+Amount used is intentionally not stored. It is derived where it is displayed, from
+`rate_applied × area_treated_sqft / 1000` (or `/ 43560` for `lb_per_acre`), because it depends on
+two mutable columns and storing it would invite drift. The same derivation drives inventory
+decrement in `services/inventory.py`.
 
-```
-total_amount = rate_applied × area_treated_sqft / 1000
-```
+Prior versions of this document claimed the value was computed at API serialization time under the
+name `total_amount`. It was not — no such field ever existed in the code. As of Phase 2a the
+derivation is real, but it happens in the web layer (`lib/enums.ts` → `granularAmountUsed`) and in
+the inventory service, not on the treatment response.
 
-Storing a derived value that depends on two mutable columns creates drift risk.
+### `application_method` — granular vs liquid
+
+Every `treatment` carries an `application_method` of `granular`, `liquid`, or `other`, and it
+determines which child structure holds the product detail:
+
+| Method | Child rows | Area | Amount used |
+|---|---|---|---|
+| `granular` | `treatment_product` | entered | derived (rate × area) |
+| `liquid` | `tank_fill` → `fill_product` | **derived** (mix volume ÷ calibrated rate) | entered (ground truth) |
+
+The two are additive, not unified. Granular stays two-level and simple; liquid gets the extra
+level because tank fills genuinely differ from one another.
+
+One method per treatment. Spreading granular and spraying liquid on the same day is two treatments.
+
+**Granular is one product per treatment.** A spreader has a single setting, and one setting
+delivers one rate — there is no setting that puts two products down at their respective label
+rates, which for a pesticide is a label-compliance problem and not merely an accuracy one. A
+product sold pre-blended is still one product with one label rate. The Phase 2a handoff spec
+originally called for retaining a multi-product granular affordance; it was dropped after review
+because it could not be used correctly in practice.
+
+This is enforced in the web form only. `treatment_product` still permits multiple rows per
+treatment, so the pre-Phase-2a records keep working and the constraint can be revisited without a
+migration.
+
+### `tank_fill` and `fill_product` — liquid applications
+
+A liquid application is mixed to a round tank volume, sprayed at the sprayer's calibrated rate
+until empty, and refilled as needed. Each fill is a first-class row rather than being summed into a
+flat total, because fills differ in practice — running a couple of ounces short on the last one is
+normal, and inventory decrement needs the real per-fill amounts.
+
+**What is entered:** total mix volume per fill, and the amount of each product that went into it.
+**What is derived:** `area_covered_sqft = mix volume ÷ calibrated rate × 1000`, and each product's
+effective rate = `amount_used ÷ area_covered × 1000`.
+
+`area_covered_sqft` is computed in the service layer (`services/units.area_covered_sqft`) and
+stored as a plain column, *not* a Postgres generated column — a `GENERATED` expression cannot do
+the unit normalisation that gallons-vs-litres and `gal_per_1000`-vs-`fl_oz_per_1000` require.
+
+`calibrated_rate_snapshot` and `calibrated_rate_unit_snapshot` freeze the sprayer's calibration at
+the time of the fill, so recalibrating the sprayer never rewrites history. Same pattern as
+`irrigation_event.precip_rate_in_per_hr_snapshot`.
+
+**The derived area may exceed the lawn's nominal size, and that is correct.** Over-mixing and
+spraying the surplus outside the maintained lawn is normal practice; the model records what
+actually happened rather than assuming every application covered exactly `lawn_profile.total_sqft`.
+`treatment.area_treated_sqft` for a liquid treatment is the sum of its fills' covered areas.
+
+The sprayer's rate comes from `equipment.calibration` (JSONB) under `application_rate` /
+`application_rate_unit`, validated by `SprayerCalibration` in `schemas/equipment.py`.
+
+### Amount units vs rate units
+
+`RATE_UNITS` describe a quantity *per area* (`lb_per_1000`). `AMOUNT_UNITS` describe a quantity
+outright — volume (`fl_oz`, `pt`, `qt`, `gal`) or weight (`oz`, `lb`). They are not
+interchangeable, and `product.current_inventory_unit` takes an **amount** unit.
+
+Before Phase 2a it wrongly took a rate unit, which made `0 lb_per_1000` the only expressible stock
+level — meaningless, and unusable for decrement. Migration `a1c4e7b92f03` repointed the constraint
+and cleared the one affected row.
+
+Conversions live in exactly one place, `services/units.py`. Volume and weight are separate
+families: converting between them needs a product's density, which is not modelled, so the
+conversion **raises rather than guessing**. Callers report the failure and skip the decrement —
+inventory is left visibly stale instead of silently wrong.
+
+### Inventory decrement
+
+Saving a treatment decrements `product.current_inventory`; editing or deleting one restores it.
+Edits restore the previous consumption in full and re-apply the new consumption rather than
+computing a delta, which stays correct when an edit adds or removes products.
+
+Inventory is allowed to go negative — Aaron does not always log restocks, and refusing the save
+would block recording something that physically happened. Negative stock is flagged in the UI
+instead.
 
 ### `cultural_practice.details` — structured mow fields
 
