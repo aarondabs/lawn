@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductDetailClient } from "../_components/product-detail-client";
+import { rateUnitLabel } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Product Detail" };
 
@@ -52,12 +53,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <Card>
           <CardHeader><CardTitle className="text-base">Application</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <DetailRow label="Label rate" value={`${product.label_rate} ${product.label_rate_unit}`} />
+            <DetailRow label="Label rate" value={`${product.label_rate} ${rateUnitLabel(product.label_rate_unit)}`} />
             <DetailRow label="Re-entry interval" value={product.reentry_interval_hours != null ? `${product.reentry_interval_hours} hrs` : null} />
             <DetailRow label="Min reapplication" value={product.min_reapplication_days != null ? `${product.min_reapplication_days} days` : null} />
             <DetailRow
               label="Max annual rate"
-              value={product.max_annual_rate != null ? `${product.max_annual_rate} ${product.max_annual_rate_unit}` : null}
+              value={product.max_annual_rate != null ? `${product.max_annual_rate} ${rateUnitLabel(product.max_annual_rate_unit ?? "")}` : null}
             />
           </CardContent>
         </Card>
@@ -66,7 +67,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <CardContent>
             {product.current_inventory != null ? (
               <p className="text-2xl font-semibold">
-                {product.current_inventory} <span className="text-base font-normal text-muted-foreground">{product.current_inventory_unit}</span>
+                {product.current_inventory} <span className="text-base font-normal text-muted-foreground">{rateUnitLabel(product.current_inventory_unit ?? "")}</span>
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">Not tracked</p>

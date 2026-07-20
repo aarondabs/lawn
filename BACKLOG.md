@@ -16,6 +16,18 @@ Captured candidates and ideas. **This is a parking lot, not a roadmap.** Items h
 ### Tank-mix UX learnings from real use
 - The tank-mix Quick Log flow shipped in Phase 1.5. Real use will reveal whether the "+ Add product" affordance is well-placed, whether defaults are right, and whether the sub-15-second goal holds for multi-product mixes.
 
+### JSONB columns store JSON `null` instead of SQL `NULL`
+- SQLAlchemy's `JSONB` type renders Python `None` as JSONB `'null'` unless the column sets
+  `none_as_null=True`. Every nullable JSONB column in `entities.py` is affected —
+  `cultural_practice.details`, `equipment.calibration`, `product.active_ingredients`,
+  `guaranteed_analysis`, `soil_test.base_saturation`.
+- Consequence: `WHERE details IS NULL` silently matches nothing. This bit the Phase 2a mow
+  backfill, which reported `UPDATE 0` until the predicate became
+  `details IS NULL OR jsonb_typeof(details) = 'null'`.
+- Fix is a one-line change per column plus a migration to normalize existing `'null'` values.
+  Deferred because it's repo-wide and Phase 2a Block 1 was scoped to logging friction. Worth
+  doing before anything queries JSONB columns for absence.
+
 ## To evaluate during the two-week use period
 
 - Treatment Quick Log: does it actually hit sub-15 seconds on mobile for the common single-product case?

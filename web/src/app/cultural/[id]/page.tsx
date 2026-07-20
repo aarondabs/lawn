@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { getCulturalPractice, listEquipment } from "@/lib/api";
+import { MOW_ORIENTATION_LABELS, readMowDetails } from "@/lib/enums";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,7 @@ export default async function CulturalDetailPage({ params }: { params: Promise<{
   }
   const equipment = await listEquipment().catch(() => []);
   const usedEquipment = equipment.find((e) => e.id === practice.equipment_id);
+  const mow = readMowDetails(practice.details);
 
   return (
     <div className="space-y-6">
@@ -52,6 +54,22 @@ export default async function CulturalDetailPage({ params }: { params: Promise<{
               <p className="text-xs text-muted-foreground">Practice</p>
               <Badge variant="secondary" className="mt-1">{practice.practice_type}</Badge>
             </div>
+            {mow.cut_height_inches !== undefined && (
+              <div>
+                <p className="text-xs text-muted-foreground">Cut height</p>
+                <p className="text-sm font-medium">{mow.cut_height_inches}&quot;</p>
+              </div>
+            )}
+            {mow.mow_orientation && (
+              <div>
+                <p className="text-xs text-muted-foreground">Mow direction</p>
+                <p className="text-sm font-medium">
+                  {mow.mow_orientation === "other" && mow.mow_orientation_other
+                    ? mow.mow_orientation_other
+                    : MOW_ORIENTATION_LABELS[mow.mow_orientation]}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-muted-foreground">Equipment</p>
               <p className="text-sm font-medium">

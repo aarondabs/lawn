@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { addProduct, updateProduct } from "@/app/actions/product";
+import { RATE_UNITS, rateUnitLabel } from "@/lib/enums";
 import type { Product } from "@/lib/api";
 
 const PRODUCT_TYPES = [
@@ -31,15 +32,7 @@ const PRODUCT_TYPES = [
   "seed",
   "other",
 ] as const;
-const UNITS = [
-  "lb_per_1000",
-  "oz_per_1000",
-  "fl_oz_per_1000",
-  "gal_per_1000",
-  "fl_oz_per_gal",
-  "pct_vv",
-  "lb_per_acre",
-] as const;
+const UNITS = RATE_UNITS;
 
 const schema = z.object({
   name: z.string().min(1),
@@ -160,12 +153,16 @@ export function ProductForm({ product, onSuccess }: Props) {
               </FormItem>
             )} />
             <FormField control={form.control} name="label_rate_unit" render={({ field }) => (
-              <FormItem className="w-24">
+              <FormItem className="w-44">
                 <FormLabel>Unit</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue>{rateUnitLabel(field.value)}</SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
                   <SelectContent>
-                    {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    {UNITS.map((u) => <SelectItem key={u} value={u}>{rateUnitLabel(u)}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -195,12 +192,18 @@ export function ProductForm({ product, onSuccess }: Props) {
               </FormItem>
             )} />
             <FormField control={form.control} name="max_annual_rate_unit" render={({ field }) => (
-              <FormItem className="w-24">
+              <FormItem className="w-44">
                 <FormLabel>Unit</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="–" /></SelectTrigger></FormControl>
+                <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="–">
+                        {field.value ? rateUnitLabel(field.value) : "–"}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
                   <SelectContent>
-                    {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    {UNITS.map((u) => <SelectItem key={u} value={u}>{rateUnitLabel(u)}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -216,12 +219,18 @@ export function ProductForm({ product, onSuccess }: Props) {
               </FormItem>
             )} />
             <FormField control={form.control} name="current_inventory_unit" render={({ field }) => (
-              <FormItem className="w-24">
+              <FormItem className="w-44">
                 <FormLabel>Unit</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="–" /></SelectTrigger></FormControl>
+                <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="–">
+                        {field.value ? rateUnitLabel(field.value) : "–"}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
                   <SelectContent>
-                    {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    {UNITS.map((u) => <SelectItem key={u} value={u}>{rateUnitLabel(u)}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <FormMessage />

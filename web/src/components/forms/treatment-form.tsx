@@ -15,29 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import type { Equipment, Product, Treatment } from "@/lib/api";
 import { toLocalDatetimeInputValue } from "@/lib/datetime";
-
-const RATE_UNITS = [
-  "lb_per_1000",
-  "oz_per_1000",
-  "fl_oz_per_1000",
-  "gal_per_1000",
-  "fl_oz_per_gal",
-  "pct_vv",
-  "lb_per_acre",
-] as const;
-
-const PER_AREA_RATE_UNITS = [
-  "lb_per_1000",
-  "oz_per_1000",
-  "fl_oz_per_1000",
-  "gal_per_1000",
-  "lb_per_acre",
-] as const;
+import { PER_AREA_RATE_UNITS, RATE_UNITS, type RateUnit, rateUnitLabel } from "@/lib/enums";
 
 const APPLICATORS = ["self", "spouse", "lawn_service", "other"] as const;
 const NO_EQUIPMENT_VALUE = "__none__";
 
-type RateUnit = (typeof RATE_UNITS)[number];
 const PER_AREA_RATE_UNITS_SET = new Set<string>(PER_AREA_RATE_UNITS);
 
 const tankMixProductSchema = z.object({
@@ -368,13 +350,13 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
                       <Select onValueChange={unitField.onChange} value={unitField.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue />
+                            <SelectValue>{rateUnitLabel(unitField.value)}</SelectValue>
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {RATE_UNITS.map((u) => (
                             <SelectItem key={u} value={u}>
-                              {u}
+                              {rateUnitLabel(u)}
                             </SelectItem>
                           ))}
                         </SelectContent>

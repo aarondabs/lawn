@@ -31,6 +31,7 @@ export type QuickLogData = {
   profile: LawnProfile | null;
   lastTreatment: Treatment | null;
   defaultSqft: number | null;
+  defaultCutHeight: number | null;
 };
 
 const FAB_HIDDEN_PATHS = ["/reminders"];
@@ -124,12 +125,13 @@ export function QuickLogFab() {
     }
   }
 
-  const { products, equipment, profile, lastTreatment, defaultSqft } = data ?? {
+  const { products, equipment, profile, lastTreatment, defaultSqft, defaultCutHeight } = data ?? {
     products: [],
     equipment: [],
     profile: null,
     lastTreatment: null,
     defaultSqft: null,
+    defaultCutHeight: null,
   };
 
   // Prefill from last treatment — date resets to now, everything else carries over.
@@ -189,6 +191,7 @@ export function QuickLogFab() {
             <CulturalPracticeForm
               equipment={equipment}
               initialPracticeType="mow"
+              defaultCutHeight={defaultCutHeight ?? undefined}
               onSuccess={() => setOpen(false)}
             />
           )}

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Shovel } from "lucide-react";
 
-import { listCulturalPractices, listEquipment } from "@/lib/api";
+import { getLawnProfile, listCulturalPractices, listEquipment } from "@/lib/api";
+import { defaultCutHeight, formatMowSummary } from "@/lib/enums";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,10 +19,12 @@ function formatDate(iso: string) {
 }
 
 export default async function CulturalPage() {
-  const [practices, equipment] = await Promise.all([
+  const [practices, equipment, profile] = await Promise.all([
     listCulturalPractices().catch(() => []),
     listEquipment().catch(() => []),
+    getLawnProfile().catch(() => null),
   ]);
+  const cutHeightDefault = defaultCutHeight(practices, profile?.target_mow_height_inches);
 
   return (
     <div className="space-y-6">
@@ -30,7 +33,7 @@ export default async function CulturalPage() {
           <h1 className="text-2xl font-semibold">Cultural Practices</h1>
           <p className="text-sm text-muted-foreground">{practices.length} record{practices.length !== 1 ? "s" : ""}</p>
         </div>
-        <NewCulturalDialog equipment={equipment} />
+        <NewCulturalDialog equipment={equipment} defaultCutHeight={cutHeightDefault} />
       </div>
 
       <div className="hidden rounded-md border md:block">
@@ -39,6 +42,7 @@ export default async function CulturalPage() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Practice</TableHead>
+              <TableHead>Detail</TableHead>
               <TableHead>Equipment</TableHead>
               <TableHead />
             </TableRow>
@@ -46,13 +50,16 @@ export default async function CulturalPage() {
           <TableBody>
             {practices.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">No practices logged yet.</TableCell>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">No practices logged yet.</TableCell>
               </TableRow>
             )}
             {practices.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>{formatDate(p.performed_at)}</TableCell>
                 <TableCell><Badge variant="secondary">{p.practice_type}</Badge></TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatMowSummary(p.details) ?? "–"}
+                </TableCell>
                 <TableCell>
                   {p.equipment_id
                     ? (() => {
@@ -83,7 +90,9 @@ export default async function CulturalPage() {
                 <Shovel className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium capitalize">{p.practice_type}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(p.performed_at)}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[formatDate(p.performed_at), formatMowSummary(p.details)].filter(Boolean).join(" · ")}
+                  </p>
                 </div>
               </CardContent>
             </Card>
