@@ -898,3 +898,67 @@ async def test_inventory_warns_rather_than_guessing_density(client: AsyncClient)
     # Stock is left untouched rather than silently corrupted.
     unchanged = await client.get(f"/api/v1/products/{product_id}")
     assert float(unchanged.json()["current_inventory"]) == 10.0
+
+
+# ---------------------------------------------------------------------------
+# Phase 2c Task 0.1: JSONB nulls must be SQL NULL, not the JSON scalar 'null'
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_jsonb_absent_value_is_sql_null(client: AsyncClient) -> None:
+    """Regression guard for the none_as_null defect.
+
+    SQLAlchemy's JSONB renders Python None as JSON 'null' unless the column sets
+    none_as_null=True, which makes `IS NULL` match nothing. A guardrail asking
+    "which fertilizers lack a guaranteed analysis?" would then return an empty
+    list and read as all-clear. This asserts the predicate actually works.
+    """
+    from sqlalchemy import func, select
+
+    from lawn_api.db import AsyncSessionLocal
+    from lawn_api.models.entities import Product
+
+    with_analysis = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "Has Analysis",
+            "manufacturer": "Acme",
+            "product_type": "fertilizer_synthetic",
+            "label_rate": 2.5,
+            "label_rate_unit": "lb_per_1000",
+            "guaranteed_analysis": {"total_nitrogen": "32.0%"},
+        },
+    )
+    assert with_analysis.status_code == 201
+
+    without = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "No Analysis",
+            "manufacturer": "Acme",
+            "product_type": "fertilizer_synthetic",
+            "label_rate": 2.5,
+            "label_rate_unit": "lb_per_1000",
+        },
+    )
+    assert without.status_code == 201
+
+    async with AsyncSessionLocal() as session:
+        missing = (
+            await session.execute(
+                select(Product.name).where(Product.guaranteed_analysis.is_(None))
+            )
+        ).scalars().all()
+        # The whole point: the product with no analysis must be found by IS NULL.
+        assert missing == ["No Analysis"]
+
+        # And it must not be stored as the JSON scalar 'null' either.
+        json_nulls = (
+            await session.execute(
+                select(func.count()).select_from(Product).where(
+                    func.jsonb_typeof(Product.guaranteed_analysis) == "null"
+                )
+            )
+        ).scalar_one()
+        assert json_nulls == 0
