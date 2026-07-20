@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { rateUnitLabel } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Products" };
 
@@ -50,9 +51,9 @@ export default async function ProductsPage() {
                 <TableCell className="font-medium">{p.name}</TableCell>
                 <TableCell>{p.manufacturer}</TableCell>
                 <TableCell><Badge variant="outline">{p.product_type.replace(/_/g, " ")}</Badge></TableCell>
-                <TableCell>{p.label_rate} {p.label_rate_unit}</TableCell>
+                <TableCell>{p.label_rate} {rateUnitLabel(p.label_rate_unit)}</TableCell>
                 <TableCell>
-                  {p.current_inventory != null ? `${p.current_inventory} ${p.current_inventory_unit}` : "–"}
+                  {p.current_inventory != null ? `${p.current_inventory} ${rateUnitLabel(p.current_inventory_unit ?? "")}` : "–"}
                 </TableCell>
                 <TableCell>
                   <Button asChild variant="ghost" size="sm">
@@ -79,7 +80,7 @@ export default async function ProductsPage() {
                   <p className="text-xs text-muted-foreground">{p.manufacturer} · {p.product_type.replace(/_/g, " ")}</p>
                 </div>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {p.label_rate} {p.label_rate_unit}
+                  {p.label_rate} {rateUnitLabel(p.label_rate_unit)}
                 </span>
               </CardContent>
             </Card>

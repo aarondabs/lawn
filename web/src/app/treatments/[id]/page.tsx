@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TreatmentDetailClient } from "../_components/treatment-detail-client";
+import { rateUnitLabel } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Treatment Detail" };
 
@@ -95,12 +96,12 @@ export default async function TreatmentDetailPage({ params }: { params: Promise<
                 return (
                   <div key={tp.product_id} className="rounded-md border p-3">
                     <p className="font-medium">{product?.name ?? "Unknown product"}</p>
-                    <p className="text-sm text-muted-foreground">Rate: {tp.rate_applied} {tp.rate_unit}</p>
+                    <p className="text-sm text-muted-foreground">Rate: {tp.rate_applied} {rateUnitLabel(tp.rate_unit)}</p>
                     {tp.notes ? <p className="text-sm text-muted-foreground">Notes: {tp.notes}</p> : null}
                     {product ? (
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Badge variant="secondary">{product.product_type.replace(/_/g, " ")}</Badge>
-                        <span className="text-sm text-muted-foreground">Label: {product.label_rate} {product.label_rate_unit}</span>
+                        <span className="text-sm text-muted-foreground">Label: {product.label_rate} {rateUnitLabel(product.label_rate_unit)}</span>
                         {product.reentry_interval_hours != null ? (
                           <span className="text-sm text-muted-foreground">REI: {product.reentry_interval_hours} hrs</span>
                         ) : null}

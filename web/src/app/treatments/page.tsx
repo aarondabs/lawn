@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FlaskConical } from "lucide-react";
 
-import { listTreatments, listProducts, listEquipment } from "@/lib/api";
+import { getLawnProfile, listTreatments, listProducts, listEquipment } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { NewTreatmentDialog } from "./_components/new-treatment-dialog";
+import { rateUnitLabel } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Treatments" };
 
@@ -36,15 +37,16 @@ function rateSummary(
   if (treatment.products.length === 0) return "-";
   const sorted = [...treatment.products].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const first = sorted[0];
-  if (sorted.length === 1) return `${first.rate_applied} ${first.rate_unit}`;
-  return `${first.rate_applied} ${first.rate_unit} (+${sorted.length - 1})`;
+  if (sorted.length === 1) return `${first.rate_applied} ${rateUnitLabel(first.rate_unit)}`;
+  return `${first.rate_applied} ${rateUnitLabel(first.rate_unit)} (+${sorted.length - 1})`;
 }
 
 export default async function TreatmentsPage() {
-  const [treatments, products, equipment] = await Promise.all([
+  const [treatments, products, equipment, profile] = await Promise.all([
     listTreatments().catch(() => []),
     listProducts().catch(() => []),
     listEquipment().catch(() => []),
+    getLawnProfile().catch(() => null),
   ]);
 
   const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
@@ -56,7 +58,11 @@ export default async function TreatmentsPage() {
           <h1 className="text-2xl font-semibold">Treatments</h1>
           <p className="text-sm text-muted-foreground">{treatments.length} log{treatments.length !== 1 ? "s" : ""}</p>
         </div>
-        <NewTreatmentDialog products={products} equipment={equipment} />
+        <NewTreatmentDialog
+          products={products}
+          equipment={equipment}
+          defaultSqft={profile?.total_sqft}
+        />
       </div>
 
       <div className="hidden rounded-md border md:block">
