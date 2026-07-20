@@ -21,12 +21,14 @@ class ReminderPatch(BaseModel):
 
 class ReminderComplete(BaseModel):
     """Payload for completing a reminder."""
+
     completed_treatment_id: UUID | None = None
     completed_cultural_id: UUID | None = None
 
 
 class ReminderSnooze(BaseModel):
     """Payload for snoozing a reminder to a new due date."""
+
     new_due_date: date
 
 

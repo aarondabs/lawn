@@ -28,9 +28,7 @@ async def list_irrigation_zones(
 
 
 @router.get("/{zone_id}", response_model=IrrigationZoneOut)
-async def get_irrigation_zone(
-    zone_id: UUID, db: AsyncSession = Depends(get_db)
-) -> IrrigationZoneOut:
+async def get_irrigation_zone(zone_id: UUID, db: AsyncSession = Depends(get_db)) -> IrrigationZoneOut:
     zone = await db.get(IrrigationZone, zone_id)
     if zone is None:
         raise HTTPException(status_code=404, detail="Irrigation zone not found")

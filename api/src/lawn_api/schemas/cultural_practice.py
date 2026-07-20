@@ -16,6 +16,7 @@ class MowDetails(BaseModel):
     only thing standing between a typo and a permanently unqueryable orientation.
     Extra keys are allowed so other practice types can share the column.
     """
+
     model_config = ConfigDict(extra="allow")
 
     cut_height_inches: float | None = None

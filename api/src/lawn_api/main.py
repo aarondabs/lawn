@@ -56,13 +56,17 @@ async def lifespan(_: FastAPI):
             today = date.today()
             async with AsyncSessionLocal() as session:
                 reminders = (
-                    await session.execute(
-                        select(Reminder)
-                        .where(Reminder.completed.is_(False))
-                        .where(Reminder.due_date <= today)
-                        .order_by(Reminder.due_date.asc())
+                    (
+                        await session.execute(
+                            select(Reminder)
+                            .where(Reminder.completed.is_(False))
+                            .where(Reminder.due_date <= today)
+                            .order_by(Reminder.due_date.asc())
+                        )
                     )
-                ).scalars().all()
+                    .scalars()
+                    .all()
+                )
 
             if not reminders:
                 return
@@ -125,6 +129,7 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         scheduler.shutdown(wait=False)
+
 
 app = FastAPI(title="Lawn API", lifespan=lifespan)
 

@@ -168,16 +168,12 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
 
     observation_count = (
         await db.execute(
-            select(func.count())
-            .select_from(WeatherObservation)
-            .where(WeatherObservation.source == OPENMETEO_SOURCE)
+            select(func.count()).select_from(WeatherObservation).where(WeatherObservation.source == OPENMETEO_SOURCE)
         )
     ).scalar_one()
     forecast_count = (
         await db.execute(
-            select(func.count())
-            .select_from(WeatherForecast)
-            .where(WeatherForecast.source == OPENMETEO_SOURCE)
+            select(func.count()).select_from(WeatherForecast).where(WeatherForecast.source == OPENMETEO_SOURCE)
         )
     ).scalar_one()
 

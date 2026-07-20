@@ -19,16 +19,12 @@ router = APIRouter(prefix="/api/v1/cultural-practices", tags=["cultural-practice
 async def list_cultural_practices(
     db: AsyncSession = Depends(get_db),
 ) -> list[CulturalPracticeOut]:
-    rows = (
-        await db.execute(select(CulturalPractice).order_by(CulturalPractice.performed_at.desc()))
-    ).scalars()
+    rows = (await db.execute(select(CulturalPractice).order_by(CulturalPractice.performed_at.desc()))).scalars()
     return list(rows)
 
 
 @router.get("/{practice_id}", response_model=CulturalPracticeOut)
-async def get_cultural_practice(
-    practice_id: UUID, db: AsyncSession = Depends(get_db)
-) -> CulturalPracticeOut:
+async def get_cultural_practice(practice_id: UUID, db: AsyncSession = Depends(get_db)) -> CulturalPracticeOut:
     practice = await db.get(CulturalPractice, practice_id)
     if practice is None:
         raise HTTPException(status_code=404, detail="Cultural practice not found")
@@ -73,9 +69,7 @@ async def patch_cultural_practice(
 
 
 @router.delete("/{practice_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_cultural_practice(
-    practice_id: UUID, db: AsyncSession = Depends(get_db)
-) -> None:
+async def delete_cultural_practice(practice_id: UUID, db: AsyncSession = Depends(get_db)) -> None:
     practice = await db.get(CulturalPractice, practice_id)
     if practice is None:
         raise HTTPException(status_code=404, detail="Cultural practice not found")
