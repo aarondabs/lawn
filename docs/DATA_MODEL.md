@@ -113,6 +113,32 @@ total_amount = rate_applied × area_treated_sqft / 1000
 
 Storing a derived value that depends on two mutable columns creates drift risk.
 
+### `cultural_practice.details` — structured mow fields
+
+`details` is a nullable JSONB blob whose shape varies by `practice_type`. For
+`practice_type = 'mow'` it carries the two fields Aaron previously typed into free-text `notes`:
+
+```json
+{ "cut_height_inches": 3.75, "mow_orientation": "diagonal_nw_se" }
+```
+
+- `cut_height_inches` — numeric, greater than 0, at most 8, and a multiple of 0.25 (deck heights
+  are set in quarter-inch increments). Prefilled on the form from the last logged mow, falling
+  back to `lawn_profile.target_mow_height_inches`, but always editable — the height varies
+  seasonally.
+- `mow_orientation` — one of `north_south`, `east_west`, `diagonal_ne_sw`, `diagonal_nw_se`,
+  `other`. When `other`, an optional `mow_orientation_other` string carries the free-text
+  description.
+
+Because these live in JSONB there is **no DB CHECK constraint** — the pydantic `MowDetails`
+model in `schemas/cultural_practice.py` is the only enforcement point. Values are sourced from
+`MOW_ORIENTATIONS` in `models/constants.py`. Validation keys off the *presence* of mow fields
+rather than `practice_type`, so a PATCH that supplies `details` without `practice_type` is still
+checked. Other practice types may put arbitrary keys in `details`; they pass through untouched.
+
+Structured orientation exists so a future feature can reason over mow patterns (e.g. warning
+about repeated passes in one direction to reduce rutting). No such logic exists yet.
+
 ### `irrigation_event.inches_applied` (generated, persisted)
 
 ```sql

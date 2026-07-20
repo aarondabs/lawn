@@ -56,6 +56,16 @@ NON_AREA_RATE_UNITS = ("fl_oz_per_gal", "pct_vv")
 
 TREATMENT_APPLICATORS = ("self", "spouse", "lawn_service", "other")
 
+# Mow detail values. These live in cultural_practice.details (JSONB), so there is
+# no DB CHECK constraint backing them -- the pydantic Literal is the enforcement point.
+MOW_ORIENTATIONS = (
+    "north_south",
+    "east_west",
+    "diagonal_ne_sw",
+    "diagonal_nw_se",
+    "other",
+)
+
 CULTURAL_PRACTICE_TYPES = (
     "mow",
     "aerate",

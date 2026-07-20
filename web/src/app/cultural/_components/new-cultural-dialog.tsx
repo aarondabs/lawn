@@ -8,9 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { Equipment } from "@/lib/api";
 import { CulturalPracticeForm } from "@/components/forms/cultural-practice-form";
 
-type Props = { equipment: Equipment[] };
+type Props = { equipment: Equipment[]; defaultCutHeight?: number };
 
-export function NewCulturalDialog({ equipment }: Props) {
+export function NewCulturalDialog({ equipment, defaultCutHeight }: Props) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -20,7 +20,11 @@ export function NewCulturalDialog({ equipment }: Props) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>Log cultural practice</DialogTitle></DialogHeader>
-          <CulturalPracticeForm equipment={equipment} onSuccess={() => setOpen(false)} />
+          <CulturalPracticeForm
+            equipment={equipment}
+            defaultCutHeight={defaultCutHeight}
+            onSuccess={() => setOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </>

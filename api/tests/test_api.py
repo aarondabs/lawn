@@ -202,6 +202,70 @@ async def test_cultural_practice_crud_flow(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_mow_details_round_trip(client: AsyncClient) -> None:
+    """Structured mow fields survive create and patch, and keep their types."""
+    created = await client.post(
+        "/api/v1/cultural-practices",
+        json={
+            "performed_at": datetime.now(UTC).isoformat(),
+            "practice_type": "mow",
+            "details": {"cut_height_inches": 3.75, "mow_orientation": "diagonal_ne_sw"},
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["details"] == {
+        "cut_height_inches": 3.75,
+        "mow_orientation": "diagonal_ne_sw",
+    }
+    practice_id = created.json()["id"]
+
+    patched = await client.patch(
+        f"/api/v1/cultural-practices/{practice_id}",
+        json={"details": {"cut_height_inches": 4.0, "mow_orientation": "east_west"}},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["details"]["mow_orientation"] == "east_west"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "details",
+    [
+        {"mow_orientation": "northsouth"},        # not in MOW_ORIENTATIONS
+        {"cut_height_inches": 3.6},               # not a quarter-inch step
+        {"cut_height_inches": 9.0},               # above MAX_CUT_HEIGHT_INCHES
+        {"cut_height_inches": 0},                 # must be positive
+    ],
+)
+async def test_mow_details_rejects_bad_values(client: AsyncClient, details: dict) -> None:
+    """details is JSONB with no CHECK constraint, so pydantic is the only guard."""
+    response = await client.post(
+        "/api/v1/cultural-practices",
+        json={
+            "performed_at": datetime.now(UTC).isoformat(),
+            "practice_type": "mow",
+            "details": details,
+        },
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_non_mow_details_pass_through(client: AsyncClient) -> None:
+    """Practices with no mow keys keep an arbitrary details blob untouched."""
+    created = await client.post(
+        "/api/v1/cultural-practices",
+        json={
+            "performed_at": datetime.now(UTC).isoformat(),
+            "practice_type": "aerate",
+            "details": {"tine_depth_inches": 3, "passes": 2},
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["details"] == {"tine_depth_inches": 3, "passes": 2}
+
+
+@pytest.mark.asyncio
 async def test_treatment_crud_flow(client: AsyncClient) -> None:
     herbicide = await client.post(
         "/api/v1/products",
