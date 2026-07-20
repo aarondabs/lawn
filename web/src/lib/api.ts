@@ -133,6 +133,10 @@ export type Product = {
   max_annual_rate_unit: string | null;
   current_inventory: number | null;
   current_inventory_unit: string | null;
+  /** Low-stock trigger, in current_inventory_unit. */
+  reorder_threshold: number | null;
+  /** Days this pre-emergent blocks seed germination. herbicide_pre only. */
+  preemergent_blocking_days: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

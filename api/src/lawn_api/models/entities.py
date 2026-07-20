@@ -222,6 +222,14 @@ class Product(Base):
             f"max_annual_rate_unit IS NULL OR max_annual_rate_unit IN ({_sql_in(RATE_UNITS)})",
             name="product_max_annual_rate_unit_check",
         ),
+        CheckConstraint(
+            "reorder_threshold IS NULL OR reorder_threshold >= 0",
+            name="product_reorder_threshold_non_negative",
+        ),
+        CheckConstraint(
+            "preemergent_blocking_days IS NULL OR preemergent_blocking_days > 0",
+            name="product_preemergent_blocking_days_positive",
+        ),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
@@ -238,6 +246,12 @@ class Product(Base):
     max_annual_rate_unit = Column(Text, nullable=True)
     current_inventory = Column(Numeric, nullable=True)
     current_inventory_unit = Column(Text, nullable=True)
+    # Low-stock trigger. Shares current_inventory_unit rather than carrying its
+    # own, so the two can never disagree.
+    reorder_threshold = Column(Numeric, nullable=True)
+    # How long this pre-emergent blocks seed germination. Only meaningful for
+    # herbicide_pre; the guardrail falls back to a setting when unset.
+    preemergent_blocking_days = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
 
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
