@@ -8,7 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TreatmentDetailClient } from "../_components/treatment-detail-client";
-import { rateUnitLabel } from "@/lib/enums";
+import {
+  APPLICATION_METHOD_LABELS,
+  amountUnitLabel,
+  granularAmountUsed,
+  rateUnitLabel,
+} from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Treatment Detail" };
 
@@ -69,6 +74,14 @@ export default async function TreatmentDetailPage({ params }: { params: Promise<
             <DetailRow label="Area treated" value={`${treatment.area_treated_sqft.toLocaleString()} sq ft`} />
             <DetailRow label="Equipment" value={equip ? `${equip.make} ${equip.model}` : null} />
             <DetailRow label="Applicator" value={treatment.applicator} />
+            <DetailRow
+              label="Method"
+              value={
+                APPLICATION_METHOD_LABELS[
+                  treatment.application_method as keyof typeof APPLICATION_METHOD_LABELS
+                ] ?? treatment.application_method
+              }
+            />
             <DetailRow label="Target" value={treatment.target} />
           </CardContent>
         </Card>
@@ -87,16 +100,79 @@ export default async function TreatmentDetailPage({ params }: { params: Promise<
           </Card>
         )}
 
+        {treatment.fills.length > 0 && (
+          <Card className="sm:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Tank Fills ({treatment.fills.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {treatment.fills.map((fill) => (
+                <div key={fill.id} className="rounded-md border p-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="font-medium">Fill {fill.fill_number}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {fill.total_mix_volume} {fill.total_mix_volume_unit} @ {fill.calibrated_rate_snapshot}{" "}
+                      {rateUnitLabel(fill.calibrated_rate_unit_snapshot)} ·{" "}
+                      <span className="font-medium text-foreground">
+                        {Math.round(fill.area_covered_sqft).toLocaleString()} sq ft
+                      </span>
+                    </p>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {fill.products.map((fp) => (
+                      <div
+                        key={fp.product_id}
+                        className="flex flex-wrap justify-between gap-2 text-sm"
+                      >
+                        <span>{productMap[fp.product_id]?.name ?? "Unknown product"}</span>
+                        <span className="text-muted-foreground">
+                          {fp.amount_used} {amountUnitLabel(fp.amount_used_unit)}
+                          {fp.effective_rate_per_1000 != null && (
+                            <>
+                              {" · "}
+                              {fp.effective_rate_per_1000.toFixed(2)}{" "}
+                              {amountUnitLabel(fp.amount_used_unit)} / 1,000 sq ft
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {fill.notes ? (
+                    <p className="mt-2 text-sm text-muted-foreground">Notes: {fill.notes}</p>
+                  ) : null}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {treatmentProducts.length > 0 && (
           <Card className="sm:col-span-2">
-            <CardHeader><CardTitle className="text-base">Tank Mix</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Products</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {treatmentProducts.map((tp) => {
                 const product = productMap[tp.product_id];
                 return (
                   <div key={tp.product_id} className="rounded-md border p-3">
                     <p className="font-medium">{product?.name ?? "Unknown product"}</p>
-                    <p className="text-sm text-muted-foreground">Rate: {tp.rate_applied} {rateUnitLabel(tp.rate_unit)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Rate: {tp.rate_applied} {rateUnitLabel(tp.rate_unit)}
+                      {(() => {
+                        // Derived, never stored: rate x area. Depends on two
+                        // mutable columns, so computing it here avoids drift.
+                        const used = granularAmountUsed(
+                          tp.rate_applied,
+                          tp.rate_unit,
+                          treatment.area_treated_sqft,
+                        );
+                        return used
+                          ? ` · ${used.amount.toFixed(2)} ${amountUnitLabel(used.unit)} used`
+                          : null;
+                      })()}
+                    </p>
                     {tp.notes ? <p className="text-sm text-muted-foreground">Notes: {tp.notes}</p> : null}
                     {product ? (
                       <div className="mt-2 flex flex-wrap gap-2">

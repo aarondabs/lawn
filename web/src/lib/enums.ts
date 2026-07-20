@@ -35,6 +35,120 @@ export function rateUnitLabel(unit: string): string {
   return RATE_UNIT_LABELS[unit as RateUnit] ?? unit;
 }
 
+// ─── Application method ───────────────────────────────────────────────────────
+
+export const APPLICATION_METHODS = ["granular", "liquid", "other"] as const;
+export type ApplicationMethod = (typeof APPLICATION_METHODS)[number];
+
+export const APPLICATION_METHOD_LABELS: Record<ApplicationMethod, string> = {
+  granular: "Granular (spreader)",
+  liquid: "Liquid (sprayer)",
+  other: "Other",
+};
+
+// ─── Amount units ─────────────────────────────────────────────────────────────
+// A quantity of product, as opposed to a rate. Mirrors AMOUNT_UNITS in
+// constants.py; conversions live server-side in services/units.py.
+
+export const AMOUNT_UNITS = ["fl_oz", "pt", "qt", "gal", "oz", "lb"] as const;
+export type AmountUnit = (typeof AMOUNT_UNITS)[number];
+
+export const AMOUNT_UNIT_LABELS: Record<AmountUnit, string> = {
+  fl_oz: "fl oz",
+  pt: "pt",
+  qt: "qt",
+  gal: "gal",
+  oz: "oz",
+  lb: "lb",
+};
+
+export function amountUnitLabel(unit: string): string {
+  return AMOUNT_UNIT_LABELS[unit as AmountUnit] ?? unit;
+}
+
+/** Volume units, offered first for liquid products. */
+export const VOLUME_AMOUNT_UNITS = ["fl_oz", "pt", "qt", "gal"] as const;
+
+export const MIX_VOLUME_UNITS = ["gal", "l"] as const;
+export type MixVolumeUnit = (typeof MIX_VOLUME_UNITS)[number];
+
+export const MIX_VOLUME_UNIT_LABELS: Record<MixVolumeUnit, string> = {
+  gal: "gal",
+  l: "L",
+};
+
+export const CALIBRATED_RATE_UNITS = ["gal_per_1000", "fl_oz_per_1000"] as const;
+export type CalibratedRateUnit = (typeof CALIBRATED_RATE_UNITS)[number];
+
+/** Sprayer calibration as stored in equipment.calibration. */
+export type SprayerCalibration = {
+  application_rate?: number;
+  application_rate_unit?: CalibratedRateUnit;
+  nozzle_count?: number;
+  pressure_psi?: number;
+};
+
+export function readSprayerCalibration(
+  calibration: Record<string, unknown> | null | undefined,
+): SprayerCalibration {
+  if (!calibration) return {};
+  const rate = calibration.application_rate;
+  const unit = calibration.application_rate_unit;
+  const nozzles = calibration.nozzle_count;
+  const psi = calibration.pressure_psi;
+  return {
+    application_rate: typeof rate === "number" ? rate : undefined,
+    application_rate_unit:
+      typeof unit === "string" && (CALIBRATED_RATE_UNITS as readonly string[]).includes(unit)
+        ? (unit as CalibratedRateUnit)
+        : undefined,
+    nozzle_count: typeof nozzles === "number" ? nozzles : undefined,
+    pressure_psi: typeof psi === "number" ? psi : undefined,
+  };
+}
+
+/**
+ * Area a tank fill covers, mirroring services/units.area_covered_sqft so the
+ * form can show the number before the server confirms it. The server value is
+ * authoritative; this is for immediate feedback while typing.
+ */
+export function previewAreaCoveredSqft(
+  mixVolume: number,
+  mixVolumeUnit: string,
+  calibratedRate: number,
+  calibratedRateUnit: string,
+): number | null {
+  if (!(mixVolume > 0) || !(calibratedRate > 0)) return null;
+  const volumeGal = mixVolumeUnit === "l" ? mixVolume * 0.264172 : mixVolume;
+  const rateGalPer1000 = calibratedRateUnit === "fl_oz_per_1000" ? calibratedRate / 128 : calibratedRate;
+  return (volumeGal / rateGalPer1000) * 1000;
+}
+
+/**
+ * Amount of product a granular application consumed, mirroring
+ * services/inventory._granular_amount. Returns null for rate units that are not
+ * area-based, which have no meaning without a mix volume.
+ */
+export function granularAmountUsed(
+  rateApplied: number,
+  rateUnit: string,
+  areaSqft: number,
+): { amount: number; unit: AmountUnit } | null {
+  const perThousand: Record<string, AmountUnit> = {
+    lb_per_1000: "lb",
+    oz_per_1000: "oz",
+    fl_oz_per_1000: "fl_oz",
+    gal_per_1000: "gal",
+  };
+  if (rateUnit in perThousand) {
+    return { amount: (rateApplied * areaSqft) / 1000, unit: perThousand[rateUnit] };
+  }
+  if (rateUnit === "lb_per_acre") {
+    return { amount: (rateApplied * areaSqft) / 43560, unit: "lb" };
+  }
+  return null;
+}
+
 export const MOW_ORIENTATIONS = [
   "north_south",
   "east_west",

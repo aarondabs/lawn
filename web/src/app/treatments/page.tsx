@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FlaskConical } from "lucide-react";
 
-import { getLawnProfile, listTreatments, listProducts, listEquipment } from "@/lib/api";
+import { getLawnProfile, listTreatments, listProducts, listEquipment, type Treatment } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { NewTreatmentDialog } from "./_components/new-treatment-dialog";
-import { rateUnitLabel } from "@/lib/enums";
+import { amountUnitLabel, rateUnitLabel } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Treatments" };
 
@@ -19,9 +19,21 @@ function formatDate(iso: string) {
 }
 
 function productSummary(
-  treatment: { products: Array<{ product_id: string; rate_applied: number; rate_unit: string; position: number | null }> },
+  treatment: Treatment,
   productMap: Record<string, { name: string }>,
 ) {
+  // Liquid treatments carry their products on the fills, not the treatment.
+  if (treatment.fills.length > 0) {
+    const names = [
+      ...new Set(
+        treatment.fills.flatMap((f) =>
+          f.products.map((fp) => productMap[fp.product_id]?.name ?? "Unknown product"),
+        ),
+      ),
+    ];
+    if (names.length === 0) return "No products";
+    return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1} more`;
+  }
   if (treatment.products.length === 0) return "No products";
   const sorted = [...treatment.products].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const names = sorted
@@ -31,9 +43,13 @@ function productSummary(
   return `${names[0]} +${names.length - 1} more`;
 }
 
-function rateSummary(
-  treatment: { products: Array<{ rate_applied: number; rate_unit: string; position: number | null }> },
-) {
+function rateSummary(treatment: Treatment) {
+  if (treatment.fills.length > 0) {
+    const totalVolume = treatment.fills.reduce((sum, f) => sum + f.total_mix_volume, 0);
+    const unit = treatment.fills[0]?.total_mix_volume_unit ?? "gal";
+    const fills = treatment.fills.length;
+    return `${totalVolume} ${amountUnitLabel(unit)} in ${fills} fill${fills !== 1 ? "s" : ""}`;
+  }
   if (treatment.products.length === 0) return "-";
   const sorted = [...treatment.products].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const first = sorted[0];
@@ -71,7 +87,8 @@ export default async function TreatmentsPage() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Product</TableHead>
-              <TableHead>Rate</TableHead>
+              <TableHead>Method</TableHead>
+              <TableHead>Rate / mix</TableHead>
               <TableHead>Area (sq ft)</TableHead>
               <TableHead>Target</TableHead>
               <TableHead />
@@ -80,7 +97,7 @@ export default async function TreatmentsPage() {
           <TableBody>
             {treatments.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No treatments logged yet.
                 </TableCell>
               </TableRow>
@@ -90,6 +107,11 @@ export default async function TreatmentsPage() {
                 <TableCell>{formatDate(t.applied_at)}</TableCell>
                 <TableCell className="font-medium">
                   {productSummary(t, productMap)}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">
+                    {t.application_method === "liquid" ? "liquid" : t.application_method}
+                  </Badge>
                 </TableCell>
                 <TableCell>{rateSummary(t)}</TableCell>
                 <TableCell>{t.area_treated_sqft.toLocaleString()}</TableCell>

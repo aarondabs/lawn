@@ -301,6 +301,7 @@ async def test_treatment_crud_flow(client: AsyncClient) -> None:
         "/api/v1/treatments",
         json={
             "applied_at": datetime.now(UTC).isoformat(),
+            "application_method": "granular",
             "products": [
                 {
                     "product_id": herbicide.json()["id"],
@@ -724,3 +725,187 @@ async def test_reminder_crud_flow(client: AsyncClient) -> None:
     # Gone
     gone = await client.get(f"/api/v1/reminders/{reminder_id}")
     assert gone.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Phase 2a: liquid treatments, derived area, inventory
+# ---------------------------------------------------------------------------
+
+
+async def _liquid_fixtures(client: AsyncClient) -> tuple[str, str]:
+    """A liquid product with tracked inventory, plus a sprayer."""
+    product = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "3-Way Max",
+            "manufacturer": "Acme",
+            "product_type": "herbicide_post_broadleaf",
+            "label_rate": 1.5,
+            "label_rate_unit": "fl_oz_per_1000",
+            "current_inventory": 1,
+            "current_inventory_unit": "gal",
+        },
+    )
+    assert product.status_code == 201, product.text
+
+    sprayer = await client.post(
+        "/api/v1/equipment",
+        json={"type": "sprayer", "make": "Fimco", "model": "45 gal"},
+    )
+    assert sprayer.status_code == 201
+    return product.json()["id"], sprayer.json()["id"]
+
+
+def _fill(product_id: str, volume: float, amount: float) -> dict:
+    return {
+        "total_mix_volume": volume,
+        "total_mix_volume_unit": "gal",
+        "calibrated_rate_snapshot": 1.0,
+        "calibrated_rate_unit_snapshot": "gal_per_1000",
+        "products": [
+            {"product_id": product_id, "amount_used": amount, "amount_used_unit": "fl_oz"}
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_liquid_treatment_derives_area_from_fills(client: AsyncClient) -> None:
+    """Area comes from mix volume / calibrated rate, summed across fills."""
+    product_id, sprayer_id = await _liquid_fixtures(client)
+
+    created = await client.post(
+        "/api/v1/treatments",
+        json={
+            "applied_at": datetime.now(UTC).isoformat(),
+            "application_method": "liquid",
+            "equipment_id": sprayer_id,
+            "applicator": "self",
+            # 20 gal + 15 gal at 1 gal/1000 -> 20,000 + 15,000 sq ft
+            "fills": [_fill(product_id, 20, 30), _fill(product_id, 15, 22)],
+        },
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+
+    assert body["area_treated_sqft"] == 35000
+    assert [f["fill_number"] for f in body["fills"]] == [1, 2]
+    assert float(body["fills"][0]["area_covered_sqft"]) == 20000
+    assert float(body["fills"][1]["area_covered_sqft"]) == 15000
+
+    # Effective rate is per 1,000 sq ft of the area that fill actually covered.
+    assert float(body["fills"][0]["products"][0]["effective_rate_per_1000"]) == pytest.approx(1.5)
+
+
+@pytest.mark.asyncio
+async def test_liquid_treatment_rejects_supplied_area(client: AsyncClient) -> None:
+    """Area is derived for liquid; supplying it is a mistake, not a hint."""
+    product_id, sprayer_id = await _liquid_fixtures(client)
+    response = await client.post(
+        "/api/v1/treatments",
+        json={
+            "applied_at": datetime.now(UTC).isoformat(),
+            "application_method": "liquid",
+            "applicator": "self",
+            "equipment_id": sprayer_id,
+            "area_treated_sqft": 47000,
+            "fills": [_fill(product_id, 20, 30)],
+        },
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_granular_treatment_rejects_fills(client: AsyncClient) -> None:
+    product_id, _ = await _liquid_fixtures(client)
+    response = await client.post(
+        "/api/v1/treatments",
+        json={
+            "applied_at": datetime.now(UTC).isoformat(),
+            "application_method": "granular",
+            "applicator": "self",
+            "area_treated_sqft": 47000,
+            "products": [
+                {"product_id": product_id, "rate_applied": 1.5, "rate_unit": "fl_oz_per_1000"}
+            ],
+            "fills": [_fill(product_id, 20, 30)],
+        },
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_liquid_inventory_decrements_and_restores(client: AsyncClient) -> None:
+    """The full lifecycle: apply consumes stock, delete puts it back."""
+    product_id, sprayer_id = await _liquid_fixtures(client)
+
+    # 1 gal = 128 fl oz on hand; 30 + 22 fl oz used -> 76 fl oz = 0.59375 gal left.
+    created = await client.post(
+        "/api/v1/treatments",
+        json={
+            "applied_at": datetime.now(UTC).isoformat(),
+            "application_method": "liquid",
+            "applicator": "self",
+            "equipment_id": sprayer_id,
+            "fills": [_fill(product_id, 20, 30), _fill(product_id, 15, 22)],
+        },
+    )
+    assert created.status_code == 201, created.text
+    treatment_id = created.json()["id"]
+
+    after_apply = await client.get(f"/api/v1/products/{product_id}")
+    assert float(after_apply.json()["current_inventory"]) == pytest.approx(0.59375)
+
+    # Editing down to a single smaller fill restores the old amount first.
+    patched = await client.patch(
+        f"/api/v1/treatments/{treatment_id}",
+        json={"fills": [_fill(product_id, 10, 16)]},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["area_treated_sqft"] == 10000
+
+    after_edit = await client.get(f"/api/v1/products/{product_id}")
+    assert float(after_edit.json()["current_inventory"]) == pytest.approx(0.875)  # 112/128
+
+    deleted = await client.delete(f"/api/v1/treatments/{treatment_id}")
+    assert deleted.status_code == 204
+
+    after_delete = await client.get(f"/api/v1/products/{product_id}")
+    assert float(after_delete.json()["current_inventory"]) == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_inventory_warns_rather_than_guessing_density(client: AsyncClient) -> None:
+    """A product stocked by weight but applied by volume must not be guessed at."""
+    product = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "Ambiguous Product",
+            "manufacturer": "Acme",
+            "product_type": "fertilizer_synthetic",
+            "label_rate": 1.0,
+            "label_rate_unit": "fl_oz_per_1000",
+            "current_inventory": 10,
+            "current_inventory_unit": "lb",
+        },
+    )
+    assert product.status_code == 201
+    product_id = product.json()["id"]
+
+    created = await client.post(
+        "/api/v1/treatments",
+        json={
+            "applied_at": datetime.now(UTC).isoformat(),
+            "application_method": "liquid",
+            "applicator": "self",
+            "fills": [_fill(product_id, 20, 30)],
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    warnings = created.json()["inventory_warnings"]
+    assert len(warnings) == 1
+    assert "density" in warnings[0]["message"]
+
+    # Stock is left untouched rather than silently corrupted.
+    unchanged = await client.get(f"/api/v1/products/{product_id}")
+    assert float(unchanged.json()["current_inventory"]) == 10.0

@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { rateUnitLabel } from "@/lib/enums";
+import { amountUnitLabel, rateUnitLabel } from "@/lib/enums";
 
 export const metadata: Metadata = { title: "Products" };
 
@@ -53,7 +53,13 @@ export default async function ProductsPage() {
                 <TableCell><Badge variant="outline">{p.product_type.replace(/_/g, " ")}</Badge></TableCell>
                 <TableCell>{p.label_rate} {rateUnitLabel(p.label_rate_unit)}</TableCell>
                 <TableCell>
-                  {p.current_inventory != null ? `${p.current_inventory} ${rateUnitLabel(p.current_inventory_unit ?? "")}` : "–"}
+                  {p.current_inventory != null ? (
+                    <span className={p.current_inventory < 0 ? "font-medium text-destructive" : undefined}>
+                      {p.current_inventory} {amountUnitLabel(p.current_inventory_unit ?? "")}
+                    </span>
+                  ) : (
+                    "–"
+                  )}
                 </TableCell>
                 <TableCell>
                   <Button asChild variant="ghost" size="sm">

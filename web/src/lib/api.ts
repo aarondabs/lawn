@@ -156,10 +156,56 @@ export type TreatmentProductInput = {
   notes?: string | null;
 };
 
+export type FillProduct = {
+  product_id: string;
+  amount_used: number;
+  amount_used_unit: string;
+  notes: string | null;
+  /** Derived server-side: amount_used / area_covered_sqft * 1000. */
+  effective_rate_per_1000: number | null;
+};
+
+export type FillProductInput = {
+  product_id: string;
+  amount_used: number;
+  amount_used_unit: string;
+  notes?: string | null;
+};
+
+export type TankFill = {
+  id: string;
+  fill_number: number;
+  total_mix_volume: number;
+  total_mix_volume_unit: string;
+  calibrated_rate_snapshot: number;
+  calibrated_rate_unit_snapshot: string;
+  /** Derived: mix volume / calibrated rate. Never entered. */
+  area_covered_sqft: number;
+  products: FillProduct[];
+  notes: string | null;
+};
+
+export type TankFillInput = {
+  total_mix_volume: number;
+  total_mix_volume_unit: string;
+  calibrated_rate_snapshot: number;
+  calibrated_rate_unit_snapshot: string;
+  products: FillProductInput[];
+  notes?: string | null;
+};
+
+export type InventoryWarning = {
+  product_id: string;
+  product_name: string;
+  message: string;
+};
+
 export type Treatment = {
   id: string;
   applied_at: string;
+  application_method: string;
   products: TreatmentProduct[];
+  fills: TankFill[];
   area_treated_sqft: number;
   equipment_id: string | null;
   applicator: string;
@@ -170,12 +216,17 @@ export type Treatment = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  /** Returned on write responses only; never persisted. */
+  inventory_warnings?: InventoryWarning[];
 };
 
 export type TreatmentInput = {
   applied_at: string;
-  products: TreatmentProductInput[];
-  area_treated_sqft: number;
+  application_method: string;
+  products?: TreatmentProductInput[];
+  fills?: TankFillInput[];
+  /** Granular only -- derived server-side for liquid, and rejected if sent. */
+  area_treated_sqft?: number | null;
   equipment_id: string | null;
   applicator: string;
   weather_temp_f: number | null;
