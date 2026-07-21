@@ -523,6 +523,33 @@ export async function getDashboardSummary() {
   return apiRequest<DashboardSummary>("/api/v1/dashboard/summary");
 }
 
+export type DashboardWidgets = {
+  gdd: {
+    since_green_up: number;
+    green_up_date: string;
+    days_counted: number;
+    latest_day: number | null;
+  };
+  days_since: {
+    mow: number | null;
+    treatment: number | null;
+    fertilizer: number | null;
+    herbicide: number | null;
+    last_mow_at: string | null;
+    last_treatment_at: string | null;
+  };
+  soil_temp: {
+    latest_f: number | null;
+    avg_7d_f: number | null;
+    trend: "rising" | "falling" | "steady" | null;
+  };
+  outstanding_cautions: GuardrailFinding[];
+};
+
+export async function getDashboardWidgets() {
+  return apiRequest<DashboardWidgets>("/api/v1/dashboard/widgets");
+}
+
 // ─── Reminders ────────────────────────────────────────────────────────────────
 
 export type Reminder = {

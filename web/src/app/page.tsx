@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
+import { AgronomyWidgets, AgronomyWidgetsSkeleton } from "@/app/_components/agronomy-widgets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,6 +83,13 @@ export default async function Home() {
         </div>
         <Badge variant="secondary">API: {healthState}</Badge>
       </div>
+
+      {/* Agronomic at-a-glance: GDD, days-since, soil temp, outstanding cautions.
+          Streamed in its own Suspense boundary so the rest of the dashboard is
+          not held up by the guardrail evaluation behind it. */}
+      <Suspense fallback={<AgronomyWidgetsSkeleton />}>
+        <AgronomyWidgets />
+      </Suspense>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

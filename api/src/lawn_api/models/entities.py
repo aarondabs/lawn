@@ -573,6 +573,45 @@ class WeatherForecast(Base):
 
 
 # ---------------------------------------------------------------------------
+# weather_daily - persistent per-day summary for GDD accumulation
+# ---------------------------------------------------------------------------
+
+
+class WeatherDaily(Base):
+    """One row per calendar day, kept permanently.
+
+    Distinct from weather_forecast, which is wiped and rewritten every refresh
+    (a rolling 17-day window) and so cannot accumulate. This table is upserted
+    and never purged, so growing-degree-days can be summed across a whole season.
+
+    gdd_base50 is computed in the service layer (max(0, (high+low)/2 - 50)) and
+    left NULL when a day is missing a temperature, so the accumulation SUM skips
+    incomplete days rather than treating them as zero.
+    """
+
+    __tablename__ = "weather_daily"
+    __table_args__ = (
+        UniqueConstraint("observation_date", "source", name="weather_daily_date_source_uniq"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    observation_date = Column(Date, nullable=False)
+    source = Column(Text, nullable=False)
+    temp_high_f = Column(Numeric, nullable=True)
+    temp_low_f = Column(Numeric, nullable=True)
+    gdd_base50 = Column(Numeric, nullable=True)
+    precip_sum_in = Column(Numeric, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+# ---------------------------------------------------------------------------
 # reminder
 # ---------------------------------------------------------------------------
 
@@ -665,7 +704,8 @@ class WeatherObservation(Base):
     precip_in = Column(Numeric, nullable=True)
     soil_temp_f = Column(Numeric, nullable=True)
     et0_in = Column(Numeric, nullable=True)
-    gdd_base50 = Column(Numeric, nullable=True)
+    # gdd_base50 removed in migration f6b3d18a2c94: what it stored was not GDD.
+    # Real daily GDD lives on weather_daily.
 
 
 # ---------------------------------------------------------------------------
