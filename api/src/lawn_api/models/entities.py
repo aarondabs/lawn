@@ -616,6 +616,34 @@ class Reminder(Base):
 
 
 # ---------------------------------------------------------------------------
+# app_setting - operator-tunable thresholds (key/value)
+# ---------------------------------------------------------------------------
+
+
+class AppSetting(Base):
+    """Typed key/value config: guardrail thresholds, reminder rule parameters.
+
+    Value is JSONB so a setting can be a number, string, boolean or small object
+    without every reader coercing types. Seeded by migration
+    d4f1a67c8e23; see services/settings.py for typed access.
+    """
+
+    __tablename__ = "app_setting"
+
+    key = Column(Text, primary_key=True)
+    value = Column(JSONB, nullable=False)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+# ---------------------------------------------------------------------------
 # weather_observation - TimescaleDB hypertable exception
 # PK: (observed_at, source). No UUID.
 # Partitioning column: observed_at.

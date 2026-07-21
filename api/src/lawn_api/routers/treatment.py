@@ -21,6 +21,7 @@ from lawn_api.schemas.treatment import (
     TreatmentOut,
     TreatmentPatch,
 )
+from lawn_api.services.guardrails import evaluate_treatment
 from lawn_api.services.inventory import (
     consume_treatment_inventory,
     restore_treatment_inventory,
@@ -43,7 +44,11 @@ async def _load(db: AsyncSession, treatment_id: UUID) -> Treatment | None:
     ).scalar_one_or_none()
 
 
-def _serialize(treatment: Treatment, warnings: list[dict[str, str]] | None = None) -> dict:
+def _serialize(
+    treatment: Treatment,
+    warnings: list[dict[str, str]] | None = None,
+    guardrail_findings: list | None = None,
+) -> dict:
     """Build the response payload, adding values derived at serialization time.
 
     Effective rate is per 1,000 sq ft of the area that fill actually covered --
@@ -75,6 +80,7 @@ def _serialize(treatment: Treatment, warnings: list[dict[str, str]] | None = Non
         ],
         "fills": [],
         "inventory_warnings": warnings or [],
+        "guardrail_findings": guardrail_findings or [],
     }
 
     for fill in treatment.fills:
@@ -227,7 +233,8 @@ async def create_treatment(
 
     refreshed = await _load(db, treatment.id)
     assert refreshed is not None
-    return _serialize(refreshed, warnings)
+    findings = await evaluate_treatment(db, refreshed)
+    return _serialize(refreshed, warnings, findings)
 
 
 @router.patch("/{treatment_id}", response_model=TreatmentOut)
@@ -310,7 +317,8 @@ async def patch_treatment(
 
     updated = await _load(db, treatment.id)
     assert updated is not None
-    return _serialize(updated, warnings)
+    findings = await evaluate_treatment(db, updated)
+    return _serialize(updated, warnings, findings)
 
 
 @router.delete("/{treatment_id}", status_code=status.HTTP_204_NO_CONTENT)

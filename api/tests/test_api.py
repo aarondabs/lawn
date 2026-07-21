@@ -1,49 +1,12 @@
-import os
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import func, select, text
-from sqlalchemy.engine.url import make_url
+from httpx import AsyncClient
+from sqlalchemy import func, select
 
-from lawn_api.config import settings
 from lawn_api.db import AsyncSessionLocal
-from lawn_api.main import app
 from lawn_api.models.entities import WeatherForecast, WeatherObservation
-
-
-@pytest_asyncio.fixture
-async def client() -> AsyncClient:
-    app_env = os.getenv("APP_ENV", "development").lower()
-    allow_destructive = os.getenv("LAWN_ALLOW_DESTRUCTIVE_TESTS") == "1"
-    if app_env != "test" and not allow_destructive:
-        raise RuntimeError(
-            "Refusing to run destructive test fixture against non-test environment. "
-            "Set APP_ENV=test or LAWN_ALLOW_DESTRUCTIVE_TESTS=1 to proceed."
-        )
-
-    db_name = (make_url(settings.database_url).database or "").lower()
-    if db_name in {"lawn", "postgres"} and not allow_destructive:
-        raise RuntimeError(
-            f"Refusing to truncate non-test database '{db_name}'. Use a dedicated test DB (for example: lawn_test)."
-        )
-
-    async with AsyncSessionLocal() as db:
-        await db.execute(
-            text(
-                "TRUNCATE TABLE "
-                "reminder, irrigation_event, weather_observation, weather_forecast, "
-                "soil_test, treatment, cultural_practice, product, equipment, "
-                "irrigation_zone, lawn_profile RESTART IDENTITY CASCADE"
-            )
-        )
-        await db.commit()
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
 
 
 @pytest.mark.asyncio
