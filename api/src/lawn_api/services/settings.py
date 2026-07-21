@@ -24,6 +24,8 @@ SOIL_TEMP_PREEMERGENT_F = "soil_temp_preemergent_f"
 # seasonal, so "once per year" means "once per season", not once per Jan 1 --
 # an operator applying a week earlier next year must not trip last year's cap.
 SEASON_START_MONTH_DAY = "season_start_month_day"
+# Date GDD accumulation starts from each year (spring green-up).
+GDD_GREEN_UP_MONTH_DAY = "gdd_green_up_month_day"
 
 
 async def get_all(db: AsyncSession) -> dict[str, object]:

@@ -5,11 +5,75 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lawn_api.integrations.openmeteo import OPENMETEO_SOURCE, fetch_openmeteo_weather
-from lawn_api.models.entities import LawnProfile, WeatherForecast, WeatherObservation
+from lawn_api.integrations.openmeteo import (
+    OPENMETEO_SOURCE,
+    fetch_openmeteo_archive,
+    fetch_openmeteo_weather,
+)
+from lawn_api.models.entities import (
+    LawnProfile,
+    WeatherDaily,
+    WeatherForecast,
+    WeatherObservation,
+)
 
 DEFAULT_LATITUDE = 39.0473
 DEFAULT_LONGITUDE = -95.6752
+
+GDD_BASE_F = 50.0
+
+
+def _compute_gdd(high: float | None, low: float | None) -> float | None:
+    """Daily growing-degree-days, base 50F. NULL when a temperature is missing.
+
+    NULL rather than 0 so a day with no reading is skipped by the accumulation
+    SUM instead of dragging the total down as if it were a cold day.
+    """
+    if high is None or low is None:
+        return None
+    return max(0.0, (float(high) + float(low)) / 2.0 - GDD_BASE_F)
+
+
+def _daily_rows_from_block(daily: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build weather_daily upsert rows from an Open-Meteo daily block."""
+    days = daily.get("time", [])
+    highs = daily.get("temperature_2m_max", [])
+    lows = daily.get("temperature_2m_min", [])
+    precip = daily.get("precipitation_sum", [])
+
+    rows: list[dict[str, Any]] = []
+    for idx, day in enumerate(days):
+        high = highs[idx] if idx < len(highs) else None
+        low = lows[idx] if idx < len(lows) else None
+        rows.append(
+            {
+                "observation_date": day,
+                "source": OPENMETEO_SOURCE,
+                "temp_high_f": high,
+                "temp_low_f": low,
+                "gdd_base50": _compute_gdd(high, low),
+                "precip_sum_in": precip[idx] if idx < len(precip) else None,
+            }
+        )
+    return rows
+
+
+async def _upsert_weather_daily(db: AsyncSession, rows: list[dict[str, Any]]) -> int:
+    """Upsert daily rows, refreshing values so a provisional day is corrected."""
+    if not rows:
+        return 0
+    stmt = insert(WeatherDaily).values(rows)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["observation_date", "source"],
+        set_={
+            "temp_high_f": stmt.excluded.temp_high_f,
+            "temp_low_f": stmt.excluded.temp_low_f,
+            "gdd_base50": stmt.excluded.gdd_base50,
+            "precip_sum_in": stmt.excluded.precip_sum_in,
+        },
+    )
+    await db.execute(stmt)
+    return len(rows)
 
 WEATHER_CODE_TO_CONDITIONS = {
     0: "clear_sky",
@@ -90,7 +154,6 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
                 "precip_in": hourly_precip[idx] if idx < len(hourly_precip) else None,
                 "soil_temp_f": hourly_soil_temp[idx] if idx < len(hourly_soil_temp) else None,
                 "et0_in": hourly_et[idx] if idx < len(hourly_et) else None,
-                "gdd_base50": None,
             }
         )
 
@@ -120,7 +183,6 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
         "precip_in": current.get("precipitation"),
         "soil_temp_f": _hourly_lookup(payload, observed_at, "soil_temperature_0cm"),
         "et0_in": _hourly_lookup(payload, observed_at, "evapotranspiration"),
-        "gdd_base50": max(0.0, float(current.get("temperature_2m", 50.0)) - 50.0),
     }
 
     observation_stmt = insert(WeatherObservation).values(**observation_values)
@@ -164,6 +226,11 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
     if forecast_rows:
         await db.execute(insert(WeatherForecast), forecast_rows)
 
+    # Persist the daily block into weather_daily too. The forecast fetch carries
+    # past_days:7, so this keeps the recent tail current; the archive backfill
+    # fills the deeper season history.
+    await _upsert_weather_daily(db, _daily_rows_from_block(daily))
+
     await db.commit()
 
     observation_count = (
@@ -184,4 +251,23 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
         "longitude": longitude,
         "observations_stored": int(observation_count),
         "forecast_rows_stored": int(forecast_count),
+    }
+
+
+async def backfill_weather_daily(db: AsyncSession, start_date: str, end_date: str) -> dict[str, Any]:
+    """Populate weather_daily for a past date range from the archive API.
+
+    One-time (or occasional) operation to give GDD a full season of history.
+    Idempotent: re-running over the same range refreshes rather than duplicates.
+    """
+    latitude, longitude = await _get_coordinates(db)
+    payload = await fetch_openmeteo_archive(latitude, longitude, start_date, end_date)
+    rows = _daily_rows_from_block(payload.get("daily", {}))
+    stored = await _upsert_weather_daily(db, rows)
+    await db.commit()
+    return {
+        "status": "ok",
+        "start_date": start_date,
+        "end_date": end_date,
+        "days_stored": stored,
     }

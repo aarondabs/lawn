@@ -19,8 +19,31 @@ from lawn_api.models.entities import (
     WeatherForecast,
     WeatherObservation,
 )
+from lawn_api.services.agronomy import (
+    days_since_markers,
+    gdd_accumulation,
+    soil_temperature_trend,
+)
+from lawn_api.services.guardrails import evaluate_current_state
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
+
+
+@router.get("/widgets")
+async def get_dashboard_widgets(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    """At-a-glance agronomic state: GDD, days-since, soil-temp trend, cautions.
+
+    Kept separate from /summary (which owns weather and irrigation) so each
+    stays focused. Every field degrades to null when its data is thin.
+    """
+    now = datetime.now(tz=ZoneInfo("UTC"))
+    findings = await evaluate_current_state(db, now)
+    return {
+        "gdd": await gdd_accumulation(db, now),
+        "days_since": await days_since_markers(db, now),
+        "soil_temp": await soil_temperature_trend(db, now),
+        "outstanding_cautions": [f.model_dump(mode="json") for f in findings],
+    }
 
 
 def _num(value: Decimal | float | int | None) -> float | None:
