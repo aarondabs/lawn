@@ -11,6 +11,7 @@ from lawn_api.db import get_db
 from lawn_api.models.entities import (
     CulturalPractice,
     IrrigationEvent,
+    IrrigationSkip,
     IrrigationZone,
     Reminder,
     SoilTest,
@@ -38,11 +39,32 @@ async def get_dashboard_widgets(db: AsyncSession = Depends(get_db)) -> dict[str,
     """
     now = datetime.now(tz=ZoneInfo("UTC"))
     findings = await evaluate_current_state(db, now)
+
+    seven_days_ago = now - timedelta(days=7)
+    recent_skips = (
+        (
+            await db.execute(
+                select(IrrigationSkip)
+                .where(IrrigationSkip.occurred_at >= seven_days_ago)
+                .order_by(IrrigationSkip.occurred_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
     return {
         "gdd": await gdd_accumulation(db, now),
         "days_since": await days_since_markers(db, now),
         "soil_temp": await soil_temperature_trend(db, now),
         "outstanding_cautions": [f.model_dump(mode="json") for f in findings],
+        "irrigation_skips_7d": {
+            "count": len(recent_skips),
+            "recent": [
+                {"occurred_at": s.occurred_at.isoformat(), "summary": s.summary}
+                for s in recent_skips[:5]
+            ],
+        },
     }
 
 

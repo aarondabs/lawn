@@ -74,7 +74,13 @@ async def test_widgets_endpoint_shape(client: AsyncClient) -> None:
     r = await client.get("/api/v1/dashboard/widgets")
     assert r.status_code == 200
     body = r.json()
-    assert set(body) == {"gdd", "days_since", "soil_temp", "outstanding_cautions"}
+    assert set(body) == {
+        "gdd",
+        "days_since",
+        "soil_temp",
+        "outstanding_cautions",
+        "irrigation_skips_7d",
+    }
     # Thin data degrades to nulls, not errors.
     assert body["days_since"]["mow"] is None
     assert body["gdd"]["since_green_up"] == 0.0

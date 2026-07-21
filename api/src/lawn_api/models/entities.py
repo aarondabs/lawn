@@ -655,6 +655,35 @@ class Reminder(Base):
 
 
 # ---------------------------------------------------------------------------
+# irrigation_skip - schedule-level skip events from Rachio
+# ---------------------------------------------------------------------------
+
+
+class IrrigationSkip(Base):
+    """A Rachio schedule/weather skip (rain, seasonal shift, etc.).
+
+    Distinct from irrigation_event: a skip is device/schedule-level -- no zone,
+    no duration -- so it does not fit the run-event shape. Captured for the
+    "Rachio skipped watering N times this week" signal. Rachio's reason lives in
+    the free-text summary; subtype carries the machine category.
+    """
+
+    __tablename__ = "irrigation_skip"
+    __table_args__ = (
+        UniqueConstraint("rachio_event_id", name="irrigation_skip_rachio_event_id_uniq"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    rachio_event_id = Column(Text, nullable=True)
+    occurred_at = Column(TIMESTAMP(timezone=True), nullable=False)
+    subtype = Column(Text, nullable=True)
+    summary = Column(Text, nullable=True)
+    source = Column(Text, nullable=False, server_default=text("'rachio'"))
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
 # app_setting - operator-tunable thresholds (key/value)
 # ---------------------------------------------------------------------------
 

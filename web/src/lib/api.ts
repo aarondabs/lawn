@@ -546,6 +546,10 @@ export type DashboardWidgets = {
     trend: "rising" | "falling" | "steady" | null;
   };
   outstanding_cautions: GuardrailFinding[];
+  irrigation_skips_7d: {
+    count: number;
+    recent: { occurred_at: string; summary: string | null }[];
+  };
 };
 
 export async function getDashboardWidgets() {

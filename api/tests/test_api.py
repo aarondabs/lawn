@@ -925,3 +925,74 @@ async def test_jsonb_absent_value_is_sql_null(client: AsyncClient) -> None:
             )
         ).scalar_one()
         assert json_nulls == 0
+
+
+@pytest.mark.asyncio
+async def test_rachio_poll_captures_schedule_skips(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rain/seasonal skips are recorded separately and surfaced on the dashboard.
+
+    They carry no zone or duration, so they must not become irrigation_events --
+    but they should be captured, not dropped, and idempotent across polls.
+    """
+    monkeypatch.setattr("lawn_api.services.rachio.settings.rachio_api_key", "test-key")
+
+    await client.post(
+        "/api/v1/irrigation-zones",
+        json={
+            "zone_number": 1,
+            "name": "Front Lawn",
+            "head_type": "rotor",
+            "sun_exposure": "full_sun",
+            "slope": "flat",
+            "rachio_zone_id": "zone-ext-1",
+            "precipitation_rate_in_per_hr": 0.55,
+        },
+    )
+
+    async def fake_person_info(_: str) -> dict[str, Any]:
+        return {"id": "person-1", "devices": []}
+
+    async def fake_person_details(_: str, __: str) -> dict[str, Any]:
+        return {"devices": [{"id": "device-1"}]}
+
+    from datetime import datetime as _dt
+
+    recent = _dt.now(UTC).isoformat()
+
+    async def fake_events(*_: Any, **__: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "run-1",
+                "zoneId": "zone-ext-1",
+                "eventDate": recent,
+                "duration": 1200,
+                "subType": "ZONE_COMPLETED",
+            },
+            {
+                "id": "skip-1",
+                "eventDate": recent,
+                "type": "SCHEDULE_STATUS",
+                "subType": "SCHEDULE_RULE_SKIP_ADDED",
+                "summary": "Skipped for rain.",
+            },
+        ]
+
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_info", fake_person_info)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_person_details", fake_person_details)
+    monkeypatch.setattr("lawn_api.services.rachio.fetch_recent_events", fake_events)
+
+    first = await client.post("/api/v1/admin/poll-rachio?lookback_hours=168")
+    assert first.status_code == 200
+    assert first.json()["events_inserted"] == 1  # the run, not the skip
+    assert first.json()["skips_inserted"] == 1
+
+    # Idempotent: a second poll of the same events adds nothing.
+    second = await client.post("/api/v1/admin/poll-rachio?lookback_hours=168")
+    assert second.json()["skips_inserted"] == 0
+
+    widgets = await client.get("/api/v1/dashboard/widgets")
+    skips = widgets.json()["irrigation_skips_7d"]
+    assert skips["count"] == 1
+    assert skips["recent"][0]["summary"] == "Skipped for rain."
