@@ -13,7 +13,11 @@ from lawn_api.integrations.rachio import (
     fetch_person_info,
     fetch_recent_events,
 )
-from lawn_api.models.entities import IrrigationEvent, IrrigationZone
+from lawn_api.models.entities import IrrigationEvent, IrrigationSkip, IrrigationZone
+
+# Rachio schedule-status subtypes that represent a skip (rain, seasonal shift).
+# These carry no zone or duration, so they are recorded as skips, not runs.
+_SKIP_SUBTYPE_MARKERS = ("skip",)
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +177,37 @@ def _extract_zone_and_duration_from_summary(summary: Any) -> tuple[int | None, i
     return zone_number, duration_seconds
 
 
+def _is_skip_event(event: dict[str, Any]) -> bool:
+    subtype = _norm(event.get("subType"))
+    return any(marker in subtype for marker in _SKIP_SUBTYPE_MARKERS)
+
+
+async def _record_skip(db: AsyncSession, event: dict[str, Any]) -> bool:
+    """Insert a skip event if new. Returns True when a row was added.
+
+    Idempotent on rachio_event_id so repeated polls do not duplicate a skip.
+    """
+    rachio_event_id = event.get("id")
+    if rachio_event_id:
+        already = (
+            await db.execute(select(exists().where(IrrigationSkip.rachio_event_id == rachio_event_id)))
+        ).scalar_one()
+        if already:
+            return False
+
+    occurred_at = _to_datetime(event.get("eventDate") or event.get("createdDate"))
+    db.add(
+        IrrigationSkip(
+            rachio_event_id=rachio_event_id,
+            occurred_at=occurred_at,
+            subtype=event.get("subType"),
+            summary=event.get("summary"),
+            source=RACHIO_SOURCE,
+        )
+    )
+    return True
+
+
 def _normalize_event_source(event: dict[str, Any]) -> str:
     """Map Rachio event fields to a value in IRRIGATION_EVENT_SOURCES."""
     subtype = _norm(event.get("subType"))
@@ -293,8 +328,16 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
 
     processed = 0
     inserted = 0
+    skips_inserted = 0
 
     for event in events:
+        # Schedule-level skips (rain, seasonal shift) come through as their own
+        # events with no zone or duration. Capture them separately, then move on.
+        if _is_skip_event(event):
+            if await _record_skip(db, event):
+                skips_inserted += 1
+            continue
+
         zone_external_id = event.get("zoneId")
         summary_zone_number, summary_duration_seconds = _extract_zone_and_duration_from_summary(event.get("summary"))
 
@@ -367,6 +410,7 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
         "source": RACHIO_SOURCE,
         "events_processed": processed,
         "events_inserted": inserted,
+        "skips_inserted": skips_inserted,
     }
 
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, Gauge, Scissors, Sprout, Thermometer } from "lucide-react";
+import { AlertTriangle, Droplets, Gauge, Scissors, Sprout, Thermometer } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardWidgets, type DashboardWidgets } from "@/lib/api";
@@ -51,7 +51,7 @@ export async function AgronomyWidgets() {
     return null;
   }
 
-  const { gdd, days_since, soil_temp, outstanding_cautions } = data;
+  const { gdd, days_since, soil_temp, outstanding_cautions, irrigation_skips_7d } = data;
 
   return (
     <div className="space-y-4">
@@ -115,6 +115,14 @@ export async function AgronomyWidgets() {
           }
         />
       </div>
+
+      {irrigation_skips_7d.count > 0 && (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Droplets className="h-4 w-4 shrink-0" />
+          Rachio skipped watering {irrigation_skips_7d.count}× in the last 7 days
+          {irrigation_skips_7d.recent[0]?.summary ? ` — ${irrigation_skips_7d.recent[0].summary}` : ""}
+        </p>
+      )}
     </div>
   );
 }

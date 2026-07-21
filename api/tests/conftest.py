@@ -63,7 +63,7 @@ async def client() -> AsyncClient:
         await db.execute(
             text(
                 "TRUNCATE TABLE "
-                "reminder, irrigation_event, weather_observation, weather_forecast, "
+                "reminder, irrigation_event, irrigation_skip, weather_observation, weather_forecast, "
                 "weather_daily, soil_test, treatment, cultural_practice, product, equipment, "
                 "irrigation_zone, lawn_profile RESTART IDENTITY CASCADE"
             )
