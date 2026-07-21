@@ -189,7 +189,7 @@ export function ProductForm({ product, onSuccess }: Props) {
               <FormMessage />
             </FormItem>
           )} />
-          <div className="flex gap-2">
+          <div className="flex items-start gap-2">
             <FormField control={form.control} name="label_rate" render={({ field }) => (
               <FormItem className="flex-1">
                 <FormLabel>Label rate</FormLabel>
@@ -228,7 +228,7 @@ export function ProductForm({ product, onSuccess }: Props) {
               <FormMessage />
             </FormItem>
           )} />
-          <div className="flex gap-2">
+          <div className="flex items-start gap-2">
             <FormField control={form.control} name="max_annual_rate" render={({ field }) => (
               <FormItem className="flex-1">
                 <FormLabel>Max annual rate</FormLabel>
@@ -255,17 +255,19 @@ export function ProductForm({ product, onSuccess }: Props) {
               </FormItem>
             )} />
           </div>
-          <div className="flex gap-2">
+          {/* items-start plus non-wrapping labels: a label that wraps to two lines
+              pushes its own input down out of line with its neighbours. */}
+          <div className="flex items-start gap-2">
             <FormField control={form.control} name="current_inventory" render={({ field }) => (
               <FormItem className="flex-1">
-                <FormLabel>Current inventory</FormLabel>
+                <FormLabel className="whitespace-nowrap">In stock</FormLabel>
                 <FormControl><Input type="number" step="0.01" placeholder="optional" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
             <FormField control={form.control} name="current_inventory_unit" render={({ field }) => (
               <FormItem className="w-32">
-                <FormLabel>Unit</FormLabel>
+                <FormLabel className="whitespace-nowrap">Unit</FormLabel>
                 <Select value={field.value ?? ""} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger>
@@ -285,7 +287,7 @@ export function ProductForm({ product, onSuccess }: Props) {
             )} />
             <FormField control={form.control} name="reorder_threshold" render={({ field }) => (
               <FormItem className="flex-1">
-                <FormLabel>Reorder at</FormLabel>
+                <FormLabel className="whitespace-nowrap">Reorder at</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" placeholder="optional" {...field} />
                 </FormControl>
