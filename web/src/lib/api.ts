@@ -137,6 +137,8 @@ export type Product = {
   reorder_threshold: number | null;
   /** Days this pre-emergent blocks seed germination. herbicide_pre only. */
   preemergent_blocking_days: number | null;
+  /** Derived: full-lawn applications the current stock covers. Null if N/A. */
+  applications_remaining?: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

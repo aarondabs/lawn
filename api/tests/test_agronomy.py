@@ -110,3 +110,68 @@ async def test_soil_temp_trend(client: AsyncClient) -> None:
     soil = r.json()["soil_temp"]
     assert soil["trend"] == "rising"
     assert soil["latest_f"] == 71.0
+
+
+# ---------------------------------------------------------------------------
+# Coverage remaining (replaces the Task 4.2 static threshold)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_applications_remaining_computed(client: AsyncClient) -> None:
+    """1 gal of a 1.5 fl_oz/1,000 product over 47,000 sqft = ~1.8 applications."""
+    await client.post(
+        "/api/v1/lawn-profile",
+        json={
+            "total_sqft": 47000,
+            "target_mow_height_inches": 4.0,
+            "latitude": 39.05,
+            "longitude": -95.68,
+            "soil_type": "silty_clay_loam",
+            "water_source": "city",
+        },
+    )
+    r = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "3-Way",
+            "manufacturer": "Acme",
+            "product_type": "herbicide_post_broadleaf",
+            "label_rate": 1.5,
+            "label_rate_unit": "fl_oz_per_1000",
+            "current_inventory": 1,
+            "current_inventory_unit": "gal",
+        },
+    )
+    assert r.status_code == 201
+    # 1 gal = 128 fl oz; one app = 1.5 * 47 = 70.5 fl oz; 128/70.5 = 1.815
+    assert r.json()["applications_remaining"] == pytest.approx(1.815, abs=0.01)
+
+
+@pytest.mark.asyncio
+async def test_applications_remaining_none_for_surfactant(client: AsyncClient) -> None:
+    """A pct_vv surfactant has no per-lawn coverage -- returns null, not a guess."""
+    await client.post(
+        "/api/v1/lawn-profile",
+        json={
+            "total_sqft": 47000,
+            "target_mow_height_inches": 4.0,
+            "latitude": 39.05,
+            "longitude": -95.68,
+            "soil_type": "silty_clay_loam",
+            "water_source": "city",
+        },
+    )
+    r = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "Surfactant",
+            "manufacturer": "Acme",
+            "product_type": "surfactant",
+            "label_rate": 0.25,
+            "label_rate_unit": "pct_vv",
+            "current_inventory": 0.5,
+            "current_inventory_unit": "gal",
+        },
+    )
+    assert r.json()["applications_remaining"] is None

@@ -101,3 +101,7 @@ class ProductOut(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+    # Derived at serialization: full-lawn applications the current stock covers.
+    # None when it can't be computed (untracked stock, non-area rate, or a stock
+    # unit that can't be reconciled with the label rate without density).
+    applications_remaining: float | None = None

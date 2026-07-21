@@ -83,6 +83,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     on inventory, so this just needs reconciling.
                   </p>
                 )}
+                {product.applications_remaining != null && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    ~{product.applications_remaining.toFixed(1)} full-lawn application
+                    {product.applications_remaining >= 1.05 || product.applications_remaining < 0.95 ? "s" : ""}{" "}
+                    at label rate
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-sm text-muted-foreground">Not tracked</p>

@@ -37,6 +37,7 @@ export default async function ProductsPage() {
               <TableHead>Type</TableHead>
               <TableHead>Label rate</TableHead>
               <TableHead>Inventory</TableHead>
+              <TableHead>Apps left</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -60,6 +61,9 @@ export default async function ProductsPage() {
                   ) : (
                     "–"
                   )}
+                </TableCell>
+                <TableCell className="tabular-nums text-muted-foreground">
+                  {p.applications_remaining != null ? `~${p.applications_remaining.toFixed(1)}` : "–"}
                 </TableCell>
                 <TableCell>
                   <Button asChild variant="ghost" size="sm">
