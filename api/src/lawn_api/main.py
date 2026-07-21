@@ -46,14 +46,20 @@ async def lifespan(_: FastAPI):
             logger.exception("Scheduled Rachio polling failed")
 
     async def scheduled_reminder_check() -> None:
-        """Notify about reminders that are due today or overdue."""
+        """Generate rule-based reminders, then notify about anything due."""
         from datetime import date
 
         from sqlalchemy import select
 
         from lawn_api.models.entities import Reminder
+        from lawn_api.services.reminder_rules import evaluate_reminder_rules
 
         try:
+            # Create reminders from the rules first, so newly-triggered ones are
+            # included in the same run's notification.
+            async with AsyncSessionLocal() as session:
+                await evaluate_reminder_rules(session)
+
             today = date.today()
             async with AsyncSessionLocal() as session:
                 reminders = (
