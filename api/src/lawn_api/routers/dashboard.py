@@ -26,8 +26,16 @@ from lawn_api.services.agronomy import (
     soil_temperature_trend,
 )
 from lawn_api.services.guardrails import evaluate_current_state
+from lawn_api.services.water_balance import compute_water_balance
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
+
+
+@router.get("/water-balance")
+async def get_water_balance(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    """Rolling rainfall vs. irrigation, lawn-wide and per turf zone, plus drip activity."""
+    now = datetime.now(tz=ZoneInfo("UTC"))
+    return await compute_water_balance(db, now)
 
 
 @router.get("/widgets")

@@ -556,6 +556,22 @@ export async function getDashboardWidgets() {
   return apiRequest<DashboardWidgets>("/api/v1/dashboard/widgets");
 }
 
+export type WaterBalanceWindow = {
+  rainfall_in: number;
+  lawn_irrigation_in: number;
+  total_in: number;
+  zones: { name: string; inches: number }[];
+};
+
+export type WaterBalance = {
+  windows: Record<"7" | "14" | "30", WaterBalanceWindow>;
+  drip_7d: { event_count: number };
+};
+
+export async function getWaterBalance() {
+  return apiRequest<WaterBalance>("/api/v1/dashboard/water-balance");
+}
+
 // ─── Reminders ────────────────────────────────────────────────────────────────
 
 export type Reminder = {

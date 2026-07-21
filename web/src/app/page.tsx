@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { AgronomyWidgets, AgronomyWidgetsSkeleton } from "@/app/_components/agronomy-widgets";
+import { WaterBalanceWidget } from "@/app/_components/water-balance";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,6 +90,10 @@ export default async function Home() {
           not held up by the guardrail evaluation behind it. */}
       <Suspense fallback={<AgronomyWidgetsSkeleton />}>
         <AgronomyWidgets />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <WaterBalanceWidget />
       </Suspense>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
