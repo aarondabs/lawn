@@ -11,6 +11,7 @@ from lawn_api.routers import (
     cultural_practice_router,
     dashboard_router,
     equipment_router,
+    export_router,
     guardrail_router,
     irrigation_zone_router,
     lawn_profile_router,
@@ -146,6 +147,7 @@ app.include_router(rachio_router)
 app.include_router(lawn_profile_router)
 app.include_router(irrigation_zone_router)
 app.include_router(equipment_router)
+app.include_router(export_router)
 app.include_router(guardrail_router)
 app.include_router(product_router)
 app.include_router(cultural_practice_router)
