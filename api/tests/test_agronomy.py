@@ -181,3 +181,65 @@ async def test_applications_remaining_none_for_surfactant(client: AsyncClient) -
         },
     )
     assert r.json()["applications_remaining"] is None
+
+
+# ---------------------------------------------------------------------------
+# Water balance (Task 2.2)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_water_balance_rainfall_and_irrigation(client: AsyncClient) -> None:
+    """Lawn-wide irrigation averages across turf zones; drip is excluded."""
+    now = datetime.now(UTC)
+    today = now.date()
+
+    # Two turf zones and one drip zone.
+    turf1 = (await client.post("/api/v1/irrigation-zones", json={
+        "zone_number": 1, "name": "Turf A", "head_type": "rotor",
+        "sun_exposure": "full_sun", "slope": "flat", "zone_category": "turf",
+        "precipitation_rate_in_per_hr": 0.5,
+    })).json()
+    turf2 = (await client.post("/api/v1/irrigation-zones", json={
+        "zone_number": 2, "name": "Turf B", "head_type": "rotor",
+        "sun_exposure": "full_sun", "slope": "flat", "zone_category": "turf",
+        "precipitation_rate_in_per_hr": 0.5,
+    })).json()
+    drip = (await client.post("/api/v1/irrigation-zones", json={
+        "zone_number": 3, "name": "Shrubs", "head_type": "drip",
+        "sun_exposure": "full_sun", "slope": "flat", "zone_category": "trees_shrubs",
+        "precipitation_rate_in_per_hr": 0.3,
+    })).json()
+
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import insert
+
+        from lawn_api.models.entities import IrrigationEvent, WeatherDaily
+
+        # Rainfall: 0.5" three days ago.
+        db.add(WeatherDaily(observation_date=today - timedelta(days=3), source="openmeteo", precip_sum_in=0.5))
+        await db.flush()
+        # Core inserts: IrrigationEvent is a hypertable with a generated column,
+        # which trips the ORM's sentinel machinery on bulk add().
+        await db.execute(
+            insert(IrrigationEvent),
+            [
+                # 1 hour on each turf zone at 0.5 in/hr -> 0.5" each; lawn avg = 0.5".
+                {"started_at": now - timedelta(days=2), "zone_id": turf1["id"], "duration_seconds": 3600,
+                 "precip_rate_in_per_hr_snapshot": "0.5", "source": "rachio_scheduled"},
+                {"started_at": now - timedelta(days=2), "zone_id": turf2["id"], "duration_seconds": 3600,
+                 "precip_rate_in_per_hr_snapshot": "0.5", "source": "rachio_scheduled"},
+                # Drip ran once -- must not count toward the lawn total.
+                {"started_at": now - timedelta(days=1), "zone_id": drip["id"], "duration_seconds": 3600,
+                 "precip_rate_in_per_hr_snapshot": "0.3", "source": "rachio_scheduled"},
+            ],
+        )
+        await db.commit()
+
+    r = await client.get("/api/v1/dashboard/water-balance")
+    assert r.status_code == 200
+    w7 = r.json()["windows"]["7"]
+    assert w7["rainfall_in"] == 0.5
+    assert w7["lawn_irrigation_in"] == 0.5  # averaged across the two turf zones
+    assert w7["total_in"] == 1.0
+    assert r.json()["drip_7d"]["event_count"] == 1
