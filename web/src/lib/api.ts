@@ -198,6 +198,18 @@ export type TankFillInput = {
   notes?: string | null;
 };
 
+export type GuardrailSeverity = "ok" | "caution" | "cannot_evaluate";
+
+export type GuardrailFinding = {
+  code: string;
+  severity: GuardrailSeverity;
+  title: string;
+  message: string;
+  numbers: Record<string, number>;
+  product_id: string | null;
+  product_name: string | null;
+};
+
 export type InventoryWarning = {
   product_id: string;
   product_name: string;
@@ -222,6 +234,7 @@ export type Treatment = {
   updated_at: string;
   /** Returned on write responses only; never persisted. */
   inventory_warnings?: InventoryWarning[];
+  guardrail_findings?: GuardrailFinding[];
 };
 
 export type TreatmentInput = {
@@ -249,6 +262,8 @@ export type CulturalPractice = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  /** Returned on write responses only; never persisted. */
+  guardrail_findings?: GuardrailFinding[];
 };
 
 export type SoilTest = {

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import type { Equipment, Product, Treatment } from "@/lib/api";
 import { toLocalDatetimeInputValue } from "@/lib/datetime";
+import { showGuardrailFindings } from "@/lib/guardrails";
 import {
   AMOUNT_UNITS,
   APPLICATION_METHODS,
@@ -244,6 +245,9 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
     } else {
       toast.success(treatment ? "Treatment updated." : "Treatment logged.");
     }
+    // Guardrail cautions are advisory: the save already happened, so these
+    // inform rather than block.
+    showGuardrailFindings(result.data?.guardrail_findings);
     onSuccess?.();
 
     if (!treatment) {

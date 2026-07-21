@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { addCulturalPractice, updateCulturalPractice } from "@/app/actions/cultural-practice";
 import { toLocalDatetimeInputValue } from "@/lib/datetime";
+import { showGuardrailFindings } from "@/lib/guardrails";
 import { MOW_ORIENTATIONS, MOW_ORIENTATION_LABELS, readMowDetails } from "@/lib/enums";
 import type { CulturalPractice, Equipment } from "@/lib/api";
 
@@ -123,6 +124,8 @@ export function CulturalPracticeForm({
     }
 
     toast.success(practice ? "Practice updated." : "Practice logged.");
+    // Overseeding inside a pre-emergent's blocking window warns here.
+    showGuardrailFindings(result.data?.guardrail_findings);
     onSuccess?.();
     if (!practice) {
       router.push("/cultural");
