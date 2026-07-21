@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lawn_api.models.constants import CULTURAL_PRACTICE_TYPES, MOW_ORIENTATIONS
+from lawn_api.schemas.guardrail import GuardrailFinding
 
 MAX_CUT_HEIGHT_INCHES = 8.0
 
@@ -87,3 +88,6 @@ class CulturalPracticeOut(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+    # Populated on write responses only; never persisted. Currently only the
+    # overseed-after-pre-emergent check produces these.
+    guardrail_findings: list[GuardrailFinding] = Field(default_factory=list)

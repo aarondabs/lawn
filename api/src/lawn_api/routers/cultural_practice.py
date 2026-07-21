@@ -11,8 +11,23 @@ from lawn_api.schemas.cultural_practice import (
     CulturalPracticeOut,
     CulturalPracticePatch,
 )
+from lawn_api.services.guardrails import evaluate_overseed_after_preemergent
 
 router = APIRouter(prefix="/api/v1/cultural-practices", tags=["cultural-practices"])
+
+
+async def _with_findings(db: AsyncSession, practice: CulturalPractice) -> CulturalPracticeOut:
+    """Attach guardrail findings to a practice response.
+
+    Only an overseed can conflict with a prior pre-emergent, so that is the only
+    practice type evaluated; everything else returns no findings.
+    """
+    out = CulturalPracticeOut.model_validate(practice)
+    if practice.practice_type == "overseed":
+        out.guardrail_findings = await evaluate_overseed_after_preemergent(
+            db, practice.performed_at, practice.performed_at
+        )
+    return out
 
 
 @router.get("", response_model=list[CulturalPracticeOut])
@@ -42,7 +57,7 @@ async def create_cultural_practice(
     db.add(practice)
     await db.commit()
     await db.refresh(practice)
-    return practice
+    return await _with_findings(db, practice)
 
 
 @router.patch("/{practice_id}", response_model=CulturalPracticeOut)
@@ -65,7 +80,7 @@ async def patch_cultural_practice(
 
     await db.commit()
     await db.refresh(practice)
-    return practice
+    return await _with_findings(db, practice)
 
 
 @router.delete("/{practice_id}", status_code=status.HTTP_204_NO_CONTENT)

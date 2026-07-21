@@ -13,6 +13,7 @@ from lawn_api.models.constants import (
     RATE_UNITS,
     TREATMENT_APPLICATORS,
 )
+from lawn_api.schemas.guardrail import GuardrailFinding
 
 # ---------------------------------------------------------------------------
 # Granular path -- treatment_product (unchanged from Phase 1.5)
@@ -245,3 +246,4 @@ class TreatmentOut(BaseModel):
     updated_at: datetime
     # Populated on write responses only; never persisted.
     inventory_warnings: list[InventoryWarning] = Field(default_factory=list)
+    guardrail_findings: list[GuardrailFinding] = Field(default_factory=list)
