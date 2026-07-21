@@ -28,6 +28,35 @@ Captured candidates and ideas. **This is a parking lot, not a roadmap.** Items h
   Deferred because it's repo-wide and Phase 2a Block 1 was scoped to logging friction. Worth
   doing before anything queries JSONB columns for absence.
 
+### Schedule-aware reorder alerts (supersedes static low-stock thresholds)
+
+Operator's design, 2026-07-20, during Phase 2c product data entry. Preferred over the
+`product.reorder_threshold` mechanism Phase 2c builds.
+
+Rather than "warn me when stock drops below X", drive reorder alerts off planned work: if a
+herbicide application is scheduled two weeks out and current inventory cannot cover the treated
+area at label rate, raise a reminder to order more. The system already knows the lawn area, the
+label rate, and (after Phase 2a) the real per-application consumption, so the shortfall is
+computable rather than guessed.
+
+Why this beats a static threshold: products differ enormously in how many applications a container
+holds. One gallon of 3-Way Max is ~1.8 full-lawn applications at label rate, so any fixed threshold
+either nags immediately or fires too late to be useful. Coverage-based alerting has no such
+sensitivity.
+
+Depends on the annual treatment calendar, which does not exist yet — that is the Phase 3
+annual-schedule feature.
+
+**Phase 2c deviation**: Task 4.2's static low-stock threshold rule was **not built**. A rule that
+never fires (every threshold is null) is dead code, and it answers the wrong question — "am I below
+X?" rather than "can I cover what's coming?". Shipped instead: a **coverage remaining** figure
+(`stock ÷ (label_rate × lawn area)` = full-lawn applications left) on the product pages. Useful
+immediately, needs no thresholds, and is the same computation schedule-aware alerting requires —
+Phase 3 adds only "…and an application is scheduled in N days".
+
+`product.reorder_threshold` was migrated in before this decision. It is left in place, unused: the
+column is harmless, and a manual floor may still be wanted alongside schedule-aware alerts.
+
 ## To evaluate during the two-week use period
 
 - Treatment Quick Log: does it actually hit sub-15 seconds on mobile for the common single-product case?
