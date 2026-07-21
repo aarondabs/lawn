@@ -104,6 +104,48 @@ Without this guard, `response.json()` throws "Unexpected end of JSON input". If 
 
 ---
 
+## Scheduled jobs and admin endpoints
+
+The API runs an in-process APScheduler (`main.py` lifespan):
+
+- **Weather refresh** — every 6h. Fetches Open-Meteo, upserts observations,
+  forecast, and `weather_daily` (recent 7-day tail).
+- **Rachio poll** — hourly (only if `RACHIO_API_KEY` is set). Captures irrigation
+  runs and schedule skips, idempotent by `rachio_event_id`. **This is the primary
+  irrigation source** — webhooks are deferred (they need a public endpoint; see
+  the completion report).
+- **Reminder check** — daily. First runs the reminder *rules*
+  (`services/reminder_rules`), then notifies via ntfy about anything due.
+
+Manual triggers (all `POST`, no body):
+
+| Endpoint | Does |
+|---|---|
+| `/api/v1/admin/refresh-weather` | Run the weather refresh now |
+| `/api/v1/admin/poll-rachio?lookback_hours=N` | Poll Rachio now (default 168h) |
+| `/api/v1/admin/evaluate-reminders` | Run the reminder rules now |
+
+**GDD backfill** (one-time, from a Python shell in the `lawn-api` container):
+
+```python
+from lawn_api.db import AsyncSessionLocal
+from lawn_api.services.weather import backfill_weather_daily
+async with AsyncSessionLocal() as db:
+    await backfill_weather_daily(db, "2026-03-15", "2026-07-21")  # green-up → today
+```
+
+This pulls daily highs/lows from Open-Meteo's **archive API** (a different host
+than the forecast endpoint) to give GDD a full season of history. Idempotent.
+
+## CSV export
+
+`GET /api/v1/export/{treatments,cultural-practices,irrigation-events,products,soil-tests,weather-daily}.csv`.
+Flat, one row per line item, with derived fields (amount used, nitrogen, effective
+rate, applications remaining). The web app proxies these through
+`/api/export/{entity}` (a Next route handler) because the API base is
+container-internal and unreachable from the browser. Download links are on the
+Settings page.
+
 ## Database backups
 
 Nightly backup via cron:

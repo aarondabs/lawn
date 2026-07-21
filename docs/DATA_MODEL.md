@@ -18,9 +18,14 @@ Schema reference for the Lawn API. All decisions trace back to
 | `product` | regular | UUID (`id`) |
 | `treatment` | regular | UUID (`id`) |
 | `treatment_product` | regular | composite `(treatment_id, product_id)` |
+| `tank_fill` | regular | UUID (`id`) |
+| `fill_product` | regular | composite `(tank_fill_id, product_id)` |
 | `cultural_practice` | regular | UUID (`id`) |
 | `soil_test` | regular | UUID (`id`) |
 | `weather_forecast` | regular | UUID (`id`) |
+| `weather_daily` | regular | UUID (`id`); unique `(observation_date, source)` |
+| `irrigation_skip` | regular | UUID (`id`); unique `rachio_event_id` |
+| `app_setting` | regular | `key` (text) |
 | `reminder` | regular | UUID (`id`) |
 | `weather_observation` | **hypertable** | `(observed_at, source)` |
 | `irrigation_event` | **hypertable** | `(started_at, zone_id)` |
@@ -305,3 +310,79 @@ docker exec -w /app lawn-api python -m alembic upgrade head
 | `api/src/lawn_api/db.py` | Async engine, session factory, `Base` |
 | `api/alembic/env.py` | Alembic async env wired to settings + Base |
 | `api/alembic/versions/` | All migration revision files |
+
+---
+
+## Phase 2c additions (guardrails, dashboard, reminders, export)
+
+### `app_setting` — operator-tunable thresholds
+
+Typed key/value store (`key` text PK, `value` JSONB). Guardrails and reminder
+rules read their thresholds here instead of from constants, so they can be
+retuned without a code change. Seeded keys:
+
+| Key | Default | Used by |
+|---|---|---|
+| `nitrogen_lb_per_1000_per_30d` | `1.0` | N-load guardrail (rolling 30-day) |
+| `nitrogen_lb_per_1000_per_season` | `4.0` | N-load guardrail (season-to-date) |
+| `season_start_month_day` | `"03-01"` | annual-cumulative counter reset (see below) |
+| `gdd_green_up_month_day` | `"03-15"` | GDD accumulation start |
+| `days_since_mow_threshold` | `10` | mow-overdue reminder |
+| `soil_temp_preemergent_f` | `55` | spring pre-emergent reminder |
+| `preemergent_blocking_days_default` | `90` | pre-emergent guardrail fallback window |
+
+**Season boundary, not calendar year.** The annual-maximum guardrail resets its
+per-product cumulative at `season_start_month_day`, not Jan 1. This is
+deliberate: a "once per year" product (GrubEx) applied a week earlier than last
+year must not trip last season's cap. "Once per year" means "once per season."
+
+### `weather_daily` — GDD accumulation
+
+One row per calendar day, kept permanently (unlike `weather_forecast`, which is
+wiped and rewritten each refresh). `gdd_base50` is computed in the service layer
+as `max(0, (high+low)/2 - 50)` and left NULL when a day lacks a temperature, so
+the accumulation SUM skips incomplete days rather than counting them as zero.
+
+Populated two ways: the regular weather refresh carries the recent 7-day tail;
+`services/weather.backfill_weather_daily` pulls deeper history from Open-Meteo's
+**archive API** (a separate host from the forecast endpoint) back to green-up.
+
+The old `weather_observation.gdd_base50` column was **dropped** (migration
+`f6b3d18a2c94`). What it stored was not GDD — it was instantaneous air temp minus
+50 at poll time, one snapshot per poll, un-summable. Nothing read it.
+
+### `irrigation_skip` — Rachio schedule skips
+
+Rain/seasonal skips arrive from Rachio as `SCHEDULE_STATUS` events with a
+`SKIP_ADDED` subtype — no zone, no duration, so they don't fit `irrigation_event`.
+Captured here instead (idempotent by `rachio_event_id`) for the dashboard's
+"Rachio skipped watering N times this week" signal. The reason is in `summary`.
+
+### `product` — guardrail columns
+
+`reorder_threshold` (shares `current_inventory_unit`; unused — see the coverage
+note below) and `preemergent_blocking_days` (germination-blocking window;
+`herbicide_pre` only, nullable, falls back to the setting). `guaranteed_analysis`
+now carries typed keys (`total_nitrogen_pct`, `lbs_n_per_gallon`, …) validated by
+`schemas/product.GuaranteedAnalysis`.
+
+**Coverage remaining, not low-stock threshold.** Task 4.2's static threshold was
+not built. `product` responses instead carry a derived `applications_remaining`
+(`stock / (label_rate × lawn_area)`), computed in `services/coverage.py`. It's
+null for non-area rate units and for stock/rate unit mismatches that would need a
+density. See `BACKLOG.md` for the schedule-aware reorder feature that supersedes
+both (Phase 3).
+
+### Derived values and the guardrail finding shape
+
+Guardrails (`services/guardrails.py`) return structured `GuardrailFinding`
+objects (severity, message, the numbers), evaluated at treatment/practice save
+time and queryable at `/api/v1/dashboard/widgets` (outstanding cautions) and
+`GET /api/v1/guardrails/current`. A check that can't run for missing data returns
+`cannot_evaluate` — never a silent pass.
+
+Nitrogen and per-product amount math reuse `services/inventory` and
+`services/units` in one place, so the liquid/granular split is summed
+consistently across inventory decrement, guardrails, and CSV export. Unit
+conversion never crosses the volume/weight boundary without a density (it raises;
+callers surface it).
