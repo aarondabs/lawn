@@ -110,15 +110,33 @@ Conventional style (`feat:`, `fix:`, `docs:`).
 lines, no attribution comments in code, docs, or PR bodies. Deliberate override of the default;
 don't reintroduce it.
 
+## Phase status — AI-ready as of Phase 2c
+
+Phases 2a, 2b, and 2c are complete. The non-AI feature set is done: liquid/granular
+treatments with per-fill tracking and inventory decrement (2a), rules-based guardrails,
+the agronomic dashboard (GDD, days-since, soil-temp, water balance, outstanding cautions),
+Rachio skip visibility, rule-based reminders, and CSV export (2c). See
+`docs/agent-handoffs/PHASE_2C_COMPLETION_REPORT.md` for the full as-built account and
+deviations.
+
+**Per the Phase 2c definition of done, building stops here.** The app is AI-ready; the
+next step is real use to generate the feedback that scopes Phase 3 — not more building.
+
+**Deferred (not a gap):** Rachio webhooks. They need a public endpoint (a homelab
+Cloudflare Tunnel decision); hourly polling is the primary irrigation source meanwhile.
+
 ## Phase 3 (AI assistant) — named, not designed
 
-This is the stated end goal of the project, and it's the most likely next body of work — so know
-where it actually stands. The entire spec is three bullets in `docs/ROADMAP.md`: recommendations
-from recorded history; explainable reasoning over weather/irrigation/treatment data; human approval
-required for any recommended action. There is **no** model, provider, prompt, tool, RAG, or schema
-decision yet. `.env.example` reserves an unused `ANTHROPIC_API_KEY`. Starting it is a design task
-from near-zero. When building against Claude, read the `claude-api` skill first for current model
-IDs and patterns.
+Still the stated end goal, still a design task from near-zero. The spec is three bullets
+in `docs/ROADMAP.md`: recommendations from recorded history; explainable reasoning over
+weather/irrigation/treatment data; human approval for any recommended action. No model,
+provider, prompt, tool, RAG, or schema decision yet. `.env.example` reserves an unused
+`ANTHROPIC_API_KEY`. When building against Claude, read the `claude-api` skill first.
+
+What Phase 2c leaves ready for it: guardrail findings are already structured
+(severity/message/numbers) for a model to reason over rather than re-derive; the
+schedule-aware reorder feature (`BACKLOG.md`) is the concrete first candidate, and it
+builds on the coverage math already shipped.
 
 ## Remaining known gaps
 
