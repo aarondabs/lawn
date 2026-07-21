@@ -27,8 +27,7 @@ async def client() -> AsyncClient:
     db_name = (make_url(settings.database_url).database or "").lower()
     if db_name in {"lawn", "postgres"} and not allow_destructive:
         raise RuntimeError(
-            f"Refusing to truncate non-test database '{db_name}'. "
-            "Use a dedicated test DB (for example: lawn_test)."
+            f"Refusing to truncate non-test database '{db_name}'. Use a dedicated test DB (for example: lawn_test)."
         )
 
     async with AsyncSessionLocal() as db:
@@ -231,10 +230,10 @@ async def test_mow_details_round_trip(client: AsyncClient) -> None:
 @pytest.mark.parametrize(
     "details",
     [
-        {"mow_orientation": "northsouth"},        # not in MOW_ORIENTATIONS
-        {"cut_height_inches": 3.6},               # not a quarter-inch step
-        {"cut_height_inches": 9.0},               # above MAX_CUT_HEIGHT_INCHES
-        {"cut_height_inches": 0},                 # must be positive
+        {"mow_orientation": "northsouth"},  # not in MOW_ORIENTATIONS
+        {"cut_height_inches": 3.6},  # not a quarter-inch step
+        {"cut_height_inches": 9.0},  # above MAX_CUT_HEIGHT_INCHES
+        {"cut_height_inches": 0},  # must be positive
     ],
 )
 async def test_mow_details_rejects_bad_values(client: AsyncClient, details: dict) -> None:
@@ -450,12 +449,8 @@ async def test_refresh_weather_endpoint_uses_profile_coords_and_persists(
     assert response.json()["forecast_rows_stored"] == 2
 
     async with AsyncSessionLocal() as db:
-        observation_count = (
-            await db.execute(select(func.count()).select_from(WeatherObservation))
-        ).scalar_one()
-        forecast_count = (
-            await db.execute(select(func.count()).select_from(WeatherForecast))
-        ).scalar_one()
+        observation_count = (await db.execute(select(func.count()).select_from(WeatherObservation))).scalar_one()
+        forecast_count = (await db.execute(select(func.count()).select_from(WeatherForecast))).scalar_one()
 
     assert observation_count == 1
     assert forecast_count == 2
@@ -508,9 +503,7 @@ async def test_refresh_weather_endpoint_falls_back_to_topeka_coords(
 
 
 @pytest.mark.asyncio
-async def test_rachio_connect_upserts_zones(
-    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_rachio_connect_upserts_zones(client: AsyncClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("lawn_api.services.rachio.settings.rachio_api_key", "test-key")
 
     async def fake_person_info(_: str) -> dict[str, Any]:
@@ -762,9 +755,7 @@ def _fill(product_id: str, volume: float, amount: float) -> dict:
         "total_mix_volume_unit": "gal",
         "calibrated_rate_snapshot": 1.0,
         "calibrated_rate_unit_snapshot": "gal_per_1000",
-        "products": [
-            {"product_id": product_id, "amount_used": amount, "amount_used_unit": "fl_oz"}
-        ],
+        "products": [{"product_id": product_id, "amount_used": amount, "amount_used_unit": "fl_oz"}],
     }
 
 
@@ -824,9 +815,7 @@ async def test_granular_treatment_rejects_fills(client: AsyncClient) -> None:
             "application_method": "granular",
             "applicator": "self",
             "area_treated_sqft": 47000,
-            "products": [
-                {"product_id": product_id, "rate_applied": 1.5, "rate_unit": "fl_oz_per_1000"}
-            ],
+            "products": [{"product_id": product_id, "rate_applied": 1.5, "rate_unit": "fl_oz_per_1000"}],
             "fills": [_fill(product_id, 20, 30)],
         },
     )
@@ -909,3 +898,67 @@ async def test_inventory_warns_rather_than_guessing_density(client: AsyncClient)
     # Stock is left untouched rather than silently corrupted.
     unchanged = await client.get(f"/api/v1/products/{product_id}")
     assert float(unchanged.json()["current_inventory"]) == 10.0
+
+
+# ---------------------------------------------------------------------------
+# Phase 2c Task 0.1: JSONB nulls must be SQL NULL, not the JSON scalar 'null'
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_jsonb_absent_value_is_sql_null(client: AsyncClient) -> None:
+    """Regression guard for the none_as_null defect.
+
+    SQLAlchemy's JSONB renders Python None as JSON 'null' unless the column sets
+    none_as_null=True, which makes `IS NULL` match nothing. A guardrail asking
+    "which fertilizers lack a guaranteed analysis?" would then return an empty
+    list and read as all-clear. This asserts the predicate actually works.
+    """
+    from sqlalchemy import func, select
+
+    from lawn_api.db import AsyncSessionLocal
+    from lawn_api.models.entities import Product
+
+    with_analysis = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "Has Analysis",
+            "manufacturer": "Acme",
+            "product_type": "fertilizer_synthetic",
+            "label_rate": 2.5,
+            "label_rate_unit": "lb_per_1000",
+            "guaranteed_analysis": {"total_nitrogen": "32.0%"},
+        },
+    )
+    assert with_analysis.status_code == 201
+
+    without = await client.post(
+        "/api/v1/products",
+        json={
+            "name": "No Analysis",
+            "manufacturer": "Acme",
+            "product_type": "fertilizer_synthetic",
+            "label_rate": 2.5,
+            "label_rate_unit": "lb_per_1000",
+        },
+    )
+    assert without.status_code == 201
+
+    async with AsyncSessionLocal() as session:
+        missing = (
+            await session.execute(
+                select(Product.name).where(Product.guaranteed_analysis.is_(None))
+            )
+        ).scalars().all()
+        # The whole point: the product with no analysis must be found by IS NULL.
+        assert missing == ["No Analysis"]
+
+        # And it must not be stored as the JSON scalar 'null' either.
+        json_nulls = (
+            await session.execute(
+                select(func.count()).select_from(Product).where(
+                    func.jsonb_typeof(Product.guaranteed_analysis) == "null"
+                )
+            )
+        ).scalar_one()
+        assert json_nulls == 0

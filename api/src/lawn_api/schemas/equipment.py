@@ -8,9 +8,7 @@ from lawn_api.models.constants import CALIBRATED_RATE_UNITS, EQUIPMENT_TYPES
 
 # Keys the sprayer calibration blob is expected to carry. Anything else is left
 # alone -- other equipment types may use `calibration` for their own purposes.
-SPRAYER_CALIBRATION_KEYS = frozenset(
-    {"application_rate", "application_rate_unit", "nozzle_count", "pressure_psi"}
-)
+SPRAYER_CALIBRATION_KEYS = frozenset({"application_rate", "application_rate_unit", "nozzle_count", "pressure_psi"})
 
 
 class SprayerCalibration(BaseModel):

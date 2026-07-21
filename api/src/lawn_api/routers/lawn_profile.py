@@ -18,9 +18,7 @@ async def get_lawn_profile(db: AsyncSession = Depends(get_db)) -> LawnProfileOut
 
 
 @router.post("", response_model=LawnProfileOut)
-async def upsert_lawn_profile(
-    payload: LawnProfileUpsert, db: AsyncSession = Depends(get_db)
-) -> LawnProfileOut:
+async def upsert_lawn_profile(payload: LawnProfileUpsert, db: AsyncSession = Depends(get_db)) -> LawnProfileOut:
     profile = (await db.execute(select(LawnProfile))).scalar_one_or_none()
     if profile is None:
         profile = LawnProfile(**payload.model_dump())
@@ -35,9 +33,7 @@ async def upsert_lawn_profile(
 
 
 @router.patch("", response_model=LawnProfileOut)
-async def patch_lawn_profile(
-    payload: LawnProfilePatch, db: AsyncSession = Depends(get_db)
-) -> LawnProfileOut:
+async def patch_lawn_profile(payload: LawnProfilePatch, db: AsyncSession = Depends(get_db)) -> LawnProfileOut:
     profile = (await db.execute(select(LawnProfile))).scalar_one_or_none()
     if profile is None:
         raise HTTPException(status_code=404, detail="Lawn profile not found")

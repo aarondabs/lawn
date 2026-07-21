@@ -31,9 +31,7 @@ async def list_reminders(
 
 
 @router.get("/{reminder_id}", response_model=ReminderOut)
-async def get_reminder(
-    reminder_id: UUID, db: AsyncSession = Depends(get_db)
-) -> ReminderOut:
+async def get_reminder(reminder_id: UUID, db: AsyncSession = Depends(get_db)) -> ReminderOut:
     reminder = await db.get(Reminder, reminder_id)
     if reminder is None:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -41,9 +39,7 @@ async def get_reminder(
 
 
 @router.post("", response_model=ReminderOut, status_code=status.HTTP_201_CREATED)
-async def create_reminder(
-    payload: ReminderCreate, db: AsyncSession = Depends(get_db)
-) -> ReminderOut:
+async def create_reminder(payload: ReminderCreate, db: AsyncSession = Depends(get_db)) -> ReminderOut:
     reminder = Reminder(**payload.model_dump())
     db.add(reminder)
     await db.commit()
@@ -117,9 +113,7 @@ async def snooze_reminder(
 
 
 @router.delete("/{reminder_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_reminder(
-    reminder_id: UUID, db: AsyncSession = Depends(get_db)
-) -> None:
+async def delete_reminder(reminder_id: UUID, db: AsyncSession = Depends(get_db)) -> None:
     reminder = await db.get(Reminder, reminder_id)
     if reminder is None:
         raise HTTPException(status_code=404, detail="Reminder not found")

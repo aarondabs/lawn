@@ -37,11 +37,7 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
     seven_days_ago = now_utc - timedelta(days=7)
 
     latest_observation = (
-        await db.execute(
-            select(WeatherObservation)
-            .order_by(WeatherObservation.observed_at.desc())
-            .limit(1)
-        )
+        await db.execute(select(WeatherObservation).order_by(WeatherObservation.observed_at.desc()).limit(1))
     ).scalar_one_or_none()
 
     today_forecast = (
@@ -55,20 +51,24 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
 
     seven_days_out = today_central + timedelta(days=6)
     upcoming_forecast_rows = (
-        await db.execute(
-            select(WeatherForecast)
-            .where(
-                and_(
-                    WeatherForecast.forecast_for_day >= today_central,
-                    WeatherForecast.forecast_for_day <= seven_days_out,
+        (
+            await db.execute(
+                select(WeatherForecast)
+                .where(
+                    and_(
+                        WeatherForecast.forecast_for_day >= today_central,
+                        WeatherForecast.forecast_for_day <= seven_days_out,
+                    )
+                )
+                .order_by(
+                    WeatherForecast.forecast_for_day.asc(),
+                    WeatherForecast.fetched_at.desc(),
                 )
             )
-            .order_by(
-                WeatherForecast.forecast_for_day.asc(),
-                WeatherForecast.fetched_at.desc(),
-            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     # Keep one row per day (latest fetched), regardless of source.
     forecast_by_day: dict[object, WeatherForecast] = {}
@@ -82,9 +82,7 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
             "temp_high_f": _num(forecast_by_day.get(day).temp_high_f) if forecast_by_day.get(day) else None,
             "temp_low_f": _num(forecast_by_day.get(day).temp_low_f) if forecast_by_day.get(day) else None,
             "precip_probability_pct": (
-                _num(forecast_by_day.get(day).precip_probability_pct)
-                if forecast_by_day.get(day)
-                else None
+                _num(forecast_by_day.get(day).precip_probability_pct) if forecast_by_day.get(day) else None
             ),
             "precip_amount_in": _num(forecast_by_day.get(day).precip_amount_in) if forecast_by_day.get(day) else None,
             "wind_mph": _num(forecast_by_day.get(day).wind_mph) if forecast_by_day.get(day) else None,
@@ -97,8 +95,9 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
 
     rainfall_7d = (
         await db.execute(
-            select(func.coalesce(func.sum(WeatherObservation.precip_in), 0))
-            .where(WeatherObservation.observed_at >= seven_days_ago)
+            select(func.coalesce(func.sum(WeatherObservation.precip_in), 0)).where(
+                WeatherObservation.observed_at >= seven_days_ago
+            )
         )
     ).scalar_one()
 
@@ -136,41 +135,41 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
     last_treatment_obj = (
         await db.execute(
             select(Treatment)
-            .options(
-                selectinload(Treatment.products).selectinload(TreatmentProduct.product)
-            )
+            .options(selectinload(Treatment.products).selectinload(TreatmentProduct.product))
             .order_by(Treatment.applied_at.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
 
     cultural_rows = (
-        await db.execute(
-            select(CulturalPractice)
-            .order_by(CulturalPractice.practice_type.asc(), CulturalPractice.performed_at.desc())
+        (
+            await db.execute(
+                select(CulturalPractice).order_by(
+                    CulturalPractice.practice_type.asc(), CulturalPractice.performed_at.desc()
+                )
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     latest_cultural_by_type: dict[str, CulturalPractice] = {}
     for practice in cultural_rows:
         if practice.practice_type not in latest_cultural_by_type:
             latest_cultural_by_type[practice.practice_type] = practice
 
     latest_soil_test = (
-        await db.execute(
-            select(SoilTest)
-            .order_by(SoilTest.sample_date.desc())
-            .limit(1)
-        )
+        await db.execute(select(SoilTest).order_by(SoilTest.sample_date.desc()).limit(1))
     ).scalar_one_or_none()
 
     reminders = (
-        await db.execute(
-            select(Reminder)
-            .where(Reminder.completed.is_(False))
-            .order_by(Reminder.due_date.asc())
-            .limit(5)
+        (
+            await db.execute(
+                select(Reminder).where(Reminder.completed.is_(False)).order_by(Reminder.due_date.asc()).limit(5)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     irrigation_by_zone = [
         {
@@ -188,10 +187,7 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
     turf_rows = [row for row in irrigation_by_zone if row["included_in_turf_budget"]]
     turf_sqft_total = sum(int(row["sqft"] or 0) for row in turf_rows)
     if turf_rows and turf_sqft_total > 0:
-        irrigation_turf_avg_7d = sum(
-            row["inches"] * (int(row["sqft"] or 0) / turf_sqft_total)
-            for row in turf_rows
-        )
+        irrigation_turf_avg_7d = sum(row["inches"] * (int(row["sqft"] or 0) / turf_sqft_total) for row in turf_rows)
     elif turf_rows:
         irrigation_turf_avg_7d = sum(row["inches"] for row in turf_rows) / len(turf_rows)
     else:
@@ -239,9 +235,7 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
             "all_zones_total_7d_in": irrigation_all_zones_total_7d,
             "zones_with_events_7d": irrigation_zone_events_count_7d,
             "excluded_zone_numbers": [
-                row["zone_number"]
-                for row in irrigation_by_zone
-                if not row["included_in_turf_budget"]
+                row["zone_number"] for row in irrigation_by_zone if not row["included_in_turf_budget"]
             ],
             "calibration_note": (
                 "Calibrate precipitation rate (in/hr) for each zone and verify soil type data "

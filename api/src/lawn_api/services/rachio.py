@@ -114,9 +114,7 @@ def _zone_defaults(zone_payload: dict[str, Any]) -> dict[str, Any]:
     custom_soil = zone_payload.get("customSoil") or {}
     return {
         "head_type": HEAD_TYPE_MAP.get(_norm(zone_payload.get("zoneType")), "rotor"),
-        "sun_exposure": SUN_EXPOSURE_MAP.get(
-            _norm(zone_payload.get("sunlightExposure")), "full_sun"
-        )
+        "sun_exposure": SUN_EXPOSURE_MAP.get(_norm(zone_payload.get("sunlightExposure")), "full_sun")
         if zone_payload.get("sunlightExposure")
         else SUN_EXPOSURE_MAP_V2.get(_norm(custom_shade.get("name")), "full_sun"),
         "slope": SLOPE_MAP.get(_norm(zone_payload.get("slope")), "flat")
@@ -210,9 +208,7 @@ async def sync_rachio_zones(db: AsyncSession) -> dict[str, Any]:
                 continue
 
             existing = (
-                await db.execute(
-                    select(IrrigationZone).where(IrrigationZone.rachio_zone_id == rachio_zone_id)
-                )
+                await db.execute(select(IrrigationZone).where(IrrigationZone.rachio_zone_id == rachio_zone_id))
             ).scalar_one_or_none()
 
             defaults = _zone_defaults(zone)
@@ -268,9 +264,7 @@ async def sync_rachio_zones(db: AsyncSession) -> dict[str, Any]:
 async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict[str, Any]:
     api_key = _require_api_key()
 
-    has_zones = (
-        await db.execute(select(exists().where(IrrigationZone.rachio_zone_id.is_not(None))))
-    ).scalar_one()
+    has_zones = (await db.execute(select(exists().where(IrrigationZone.rachio_zone_id.is_not(None))))).scalar_one()
     if not has_zones:
         return {
             "status": "skipped",
@@ -285,11 +279,7 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
         raise RuntimeError("Rachio person id missing from person/info response")
 
     person_details = await fetch_person_details(api_key, person_id)
-    device_ids = [
-        str(device.get("id"))
-        for device in person_details.get("devices", [])
-        if device.get("id")
-    ]
+    device_ids = [str(device.get("id")) for device in person_details.get("devices", []) if device.get("id")]
 
     events: list[dict[str, Any]] = []
     for device_id in device_ids:
@@ -306,9 +296,7 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
 
     for event in events:
         zone_external_id = event.get("zoneId")
-        summary_zone_number, summary_duration_seconds = _extract_zone_and_duration_from_summary(
-            event.get("summary")
-        )
+        summary_zone_number, summary_duration_seconds = _extract_zone_and_duration_from_summary(event.get("summary"))
 
         zone = None
         if zone_external_id:
@@ -341,21 +329,12 @@ async def poll_rachio_events(db: AsyncSession, lookback_hours: int = 24) -> dict
         already_exists = False
         if rachio_event_id:
             already_exists = (
-                await db.execute(
-                    select(
-                        exists().where(IrrigationEvent.rachio_event_id == rachio_event_id)
-                    )
-                )
+                await db.execute(select(exists().where(IrrigationEvent.rachio_event_id == rachio_event_id)))
             ).scalar_one()
         if already_exists:
             continue
 
-        duration_seconds = int(
-            event.get("duration")
-            or event.get("durationSeconds")
-            or summary_duration_seconds
-            or 0
-        )
+        duration_seconds = int(event.get("duration") or event.get("durationSeconds") or summary_duration_seconds or 0)
         if duration_seconds <= 0:
             continue
 

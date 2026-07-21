@@ -26,9 +26,7 @@ async def get_soil_test(soil_test_id: UUID, db: AsyncSession = Depends(get_db)) 
 
 
 @router.post("", response_model=SoilTestOut, status_code=status.HTTP_201_CREATED)
-async def create_soil_test(
-    payload: SoilTestCreate, db: AsyncSession = Depends(get_db)
-) -> SoilTestOut:
+async def create_soil_test(payload: SoilTestCreate, db: AsyncSession = Depends(get_db)) -> SoilTestOut:
     soil_test = SoilTest(**payload.model_dump())
     db.add(soil_test)
     await db.commit()

@@ -18,9 +18,7 @@ async def list_equipment(db: AsyncSession = Depends(get_db)) -> list[EquipmentOu
 
 
 @router.get("/{equipment_id}", response_model=EquipmentOut)
-async def get_equipment(
-    equipment_id: UUID, db: AsyncSession = Depends(get_db)
-) -> EquipmentOut:
+async def get_equipment(equipment_id: UUID, db: AsyncSession = Depends(get_db)) -> EquipmentOut:
     equipment = await db.get(Equipment, equipment_id)
     if equipment is None:
         raise HTTPException(status_code=404, detail="Equipment not found")
@@ -28,9 +26,7 @@ async def get_equipment(
 
 
 @router.post("", response_model=EquipmentOut, status_code=status.HTTP_201_CREATED)
-async def create_equipment(
-    payload: EquipmentCreate, db: AsyncSession = Depends(get_db)
-) -> EquipmentOut:
+async def create_equipment(payload: EquipmentCreate, db: AsyncSession = Depends(get_db)) -> EquipmentOut:
     equipment = Equipment(**payload.model_dump())
     db.add(equipment)
     await db.commit()
