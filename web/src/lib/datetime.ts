@@ -1,3 +1,9 @@
+// The lawn is in Topeka, KS. These pages are server-rendered, and the web
+// container runs in UTC, so date formatting must name the zone explicitly or a
+// 7:32 PM Central timestamp renders as the next day's 12:32 AM. Single-location
+// app: the backend already hardcodes this same zone.
+export const LAWN_TIME_ZONE = "America/Chicago";
+
 function pad(value: number) {
   return String(value).padStart(2, "0");
 }

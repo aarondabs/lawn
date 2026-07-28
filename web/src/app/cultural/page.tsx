@@ -1,3 +1,4 @@
+import { LAWN_TIME_ZONE } from "@/lib/datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Shovel } from "lucide-react";
@@ -15,7 +16,8 @@ import { NewCulturalDialog } from "./_components/new-cultural-dialog";
 export const metadata: Metadata = { title: "Cultural Practices" };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: LAWN_TIME_ZONE, month: "short", day: "numeric", year: "numeric" });
 }
 
 export default async function CulturalPage() {

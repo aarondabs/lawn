@@ -1,3 +1,4 @@
+import { LAWN_TIME_ZONE } from "@/lib/datetime";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -28,6 +29,7 @@ function DetailRow({ label, value }: { label: string; value: string | number | n
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
+    timeZone: LAWN_TIME_ZONE,
     month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
   });
 }
