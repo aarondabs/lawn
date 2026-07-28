@@ -138,7 +138,12 @@ export function CulturalPracticeForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form
+        onSubmit={form.handleSubmit(onSubmit, () =>
+          toast.error("Some fields need attention — check for highlighted errors above."),
+        )}
+        className="space-y-4"
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField control={form.control} name="performed_at" render={({ field }) => (
             <FormItem>

@@ -34,9 +34,14 @@ const NO_EQUIPMENT_VALUE = "__none__";
 
 const PER_AREA_RATE_UNITS_SET = new Set<string>(PER_AREA_RATE_UNITS);
 
+// product_id and rate are NOT validated strictly here: this schema runs against
+// every row in `products` even on a liquid treatment, where the granular section
+// is hidden and its default empty row must not block the save. The real checks
+// live in superRefine's granular branch, which is skipped for liquid and points
+// its errors at the visible fields.
 const granularProductSchema = z.object({
-  product_id: z.string().uuid("Select a product"),
-  rate_applied: z.coerce.number().positive("Rate must be positive"),
+  product_id: z.string(),
+  rate_applied: z.coerce.number(),
   rate_unit: z.enum(RATE_UNITS),
   position: z.coerce.number().int().nullable().optional(),
   notes: z.string().optional(),
@@ -86,6 +91,15 @@ const schema = z
       ctx.addIssue({ code: "custom", message: "At least one product is required", path: ["products"] });
       return;
     }
+    // Per-row checks, at the visible field so the message renders where the eye is.
+    data.products.forEach((p, i) => {
+      if (!p.product_id) {
+        ctx.addIssue({ code: "custom", message: "Select a product", path: ["products", i, "product_id"] });
+      }
+      if (!(p.rate_applied > 0)) {
+        ctx.addIssue({ code: "custom", message: "Rate must be positive", path: ["products", i, "rate_applied"] });
+      }
+    });
     if (!data.products.some((p) => PER_AREA_RATE_UNITS_SET.has(p.rate_unit))) {
       ctx.addIssue({
         code: "custom",
@@ -186,6 +200,13 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
   const missingCalibration = isLiquid && !!selectedEquipment && calibration.application_rate === undefined;
 
 
+  // A dead submit button with no feedback is the worst failure mode: react-hook-form
+  // silently withholds onSubmit when validation fails, and an error on an off-screen
+  // or hidden field shows nothing. This makes that case audible instead of silent.
+  function onInvalid() {
+    toast.error("Some fields need attention — check for highlighted errors above.");
+  }
+
   async function onSubmit(values: FormValues) {
     const liquid = values.application_method === "liquid";
 
@@ -260,7 +281,7 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         <FormField
           control={form.control}
           name="application_method"
