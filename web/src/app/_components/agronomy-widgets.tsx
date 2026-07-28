@@ -1,10 +1,12 @@
+import { LAWN_TIME_ZONE } from "@/lib/datetime";
 import { AlertTriangle, Droplets, Gauge, Scissors, Sprout, Thermometer } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardWidgets, type DashboardWidgets } from "@/lib/api";
 
 function prettyDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: LAWN_TIME_ZONE, month: "short", day: "numeric" });
 }
 
 /** "3 days ago" / "today" / "--" when unknown. */

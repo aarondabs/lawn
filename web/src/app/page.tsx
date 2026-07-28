@@ -1,3 +1,4 @@
+import { LAWN_TIME_ZONE } from "@/lib/datetime";
 import { Suspense } from "react";
 import Link from "next/link";
 
@@ -10,6 +11,7 @@ import { getDashboardSummary, getHealth } from "@/lib/api";
 
 function prettyDate(dateText: string) {
   return new Date(dateText).toLocaleDateString("en-US", {
+    timeZone: LAWN_TIME_ZONE,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -18,6 +20,7 @@ function prettyDate(dateText: string) {
 
 function shortWeekday(dateText: string) {
   return new Date(dateText).toLocaleDateString("en-US", {
+    timeZone: LAWN_TIME_ZONE,
     weekday: "short",
   });
 }
@@ -27,6 +30,7 @@ function prettyDateTime(dateText: string | null) {
     return "No data";
   }
   return new Date(dateText).toLocaleString("en-US", {
+    timeZone: LAWN_TIME_ZONE,
     month: "short",
     day: "numeric",
     hour: "numeric",

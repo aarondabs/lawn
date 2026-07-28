@@ -1,5 +1,6 @@
 "use client";
 
+import { LAWN_TIME_ZONE } from "@/lib/datetime";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -80,7 +81,8 @@ export function ReminderActions({ reminder }: Props) {
 
   if (reminder.completed) {
     const completedLabel = reminder.completed_at
-      ? new Date(reminder.completed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      ? new Date(reminder.completed_at).toLocaleDateString("en-US", {
+    timeZone: LAWN_TIME_ZONE, month: "short", day: "numeric" })
       : "";
     return (
       <span className="text-xs text-muted-foreground">
