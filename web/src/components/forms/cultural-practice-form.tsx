@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { addCulturalPractice, updateCulturalPractice } from "@/app/actions/cultural-practice";
-import { toLocalDatetimeInputValue } from "@/lib/datetime";
+import { lawnLocalInputToISOString, toLocalDatetimeInputValue } from "@/lib/datetime";
 import { showGuardrailFindings } from "@/lib/guardrails";
 import { MOW_ORIENTATIONS, MOW_ORIENTATION_LABELS, readMowDetails } from "@/lib/enums";
 import type { CulturalPractice, Equipment } from "@/lib/api";
@@ -107,7 +107,7 @@ export function CulturalPracticeForm({
 
   async function onSubmit(values: FormValues) {
     const payload = {
-      performed_at: new Date(values.performed_at).toISOString(),
+      performed_at: lawnLocalInputToISOString(values.performed_at),
       practice_type: values.practice_type,
       details: buildDetails(values, practice?.details),
       equipment_id: values.equipment_id || null,

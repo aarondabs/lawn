@@ -26,6 +26,7 @@ from lawn_api.services.agronomy import (
     soil_temperature_trend,
 )
 from lawn_api.services.guardrails import evaluate_current_state
+from lawn_api.services.localtime import local_days_between, local_today
 from lawn_api.services.water_balance import compute_water_balance
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -85,8 +86,7 @@ def _num(value: Decimal | float | int | None) -> float | None:
 @router.get("/summary")
 async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
     now_utc = datetime.now(tz=ZoneInfo("UTC"))
-    central = ZoneInfo("America/Chicago")
-    today_central = now_utc.astimezone(central).date()
+    today_central = local_today(now_utc)
     seven_days_ago = now_utc - timedelta(days=7)
 
     latest_observation = (
@@ -252,7 +252,7 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
 
     last_treatment = None
     if last_treatment_obj is not None:
-        days_ago = max((now_utc - last_treatment_obj.applied_at).days, 0)
+        days_ago = max(local_days_between(last_treatment_obj.applied_at, now_utc), 0)
         first_tp = last_treatment_obj.products[0] if last_treatment_obj.products else None
         last_treatment = {
             "id": str(last_treatment_obj.id),
@@ -302,7 +302,7 @@ async def get_dashboard_summary(db: AsyncSession = Depends(get_db)) -> dict[str,
                 "id": str(practice.id),
                 "practice_type": practice.practice_type,
                 "performed_at": practice.performed_at.isoformat(),
-                "days_ago": max((now_utc - practice.performed_at).days, 0),
+                "days_ago": max(local_days_between(practice.performed_at, now_utc), 0),
             }
             for practice in latest_cultural_by_type.values()
         ],

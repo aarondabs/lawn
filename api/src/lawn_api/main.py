@@ -48,11 +48,12 @@ async def lifespan(_: FastAPI):
 
     async def scheduled_reminder_check() -> None:
         """Generate rule-based reminders, then notify about anything due."""
-        from datetime import date
+        from datetime import UTC, datetime
 
         from sqlalchemy import select
 
         from lawn_api.models.entities import Reminder
+        from lawn_api.services.localtime import local_today
         from lawn_api.services.reminder_rules import evaluate_reminder_rules
 
         try:
@@ -61,7 +62,7 @@ async def lifespan(_: FastAPI):
             async with AsyncSessionLocal() as session:
                 await evaluate_reminder_rules(session)
 
-            today = date.today()
+            today = local_today(datetime.now(UTC))
             async with AsyncSessionLocal() as session:
                 reminders = (
                     (

@@ -32,9 +32,8 @@ from lawn_api.models.entities import (
 from lawn_api.schemas.guardrail import GuardrailFinding
 from lawn_api.services import settings as app_settings
 from lawn_api.services.inventory import consumption_for_treatment
+from lawn_api.services.localtime import CENTRAL, local_days_between
 from lawn_api.services.units import UnitConversionError, convert_amount, unit_family
-
-CENTRAL = ZoneInfo("America/Chicago")
 
 FERTILIZER_TYPES = {"fertilizer_synthetic", "fertilizer_organic"}
 
@@ -276,7 +275,7 @@ async def evaluate_reapplication(
         if not prior:
             continue
         most_recent = max(prior, key=lambda t: t.applied_at)
-        gap_days = (proposed_at - most_recent.applied_at).days
+        gap_days = local_days_between(most_recent.applied_at, proposed_at)
 
         if product.min_reapplication_days is None:
             findings.append(
@@ -438,7 +437,7 @@ async def evaluate_overseed_after_preemergent(
             used_default = product.preemergent_blocking_days is None
             blocked_until = treatment.applied_at + timedelta(days=window)
             if overseed_at <= blocked_until:
-                gap = (overseed_at - treatment.applied_at).days
+                gap = local_days_between(treatment.applied_at, overseed_at)
                 assumption = " (using a conservative default window; set it on the product)" if used_default else ""
                 findings.append(
                     GuardrailFinding(

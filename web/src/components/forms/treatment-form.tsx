@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Equipment, Product, Treatment } from "@/lib/api";
-import { toLocalDatetimeInputValue } from "@/lib/datetime";
+import { lawnLocalInputToISOString, toLocalDatetimeInputValue } from "@/lib/datetime";
 import { showGuardrailFindings } from "@/lib/guardrails";
 import {
   AMOUNT_UNITS,
@@ -211,7 +211,7 @@ export function TreatmentForm({ treatment, products, equipment, defaultSqft, onS
     const liquid = values.application_method === "liquid";
 
     const payload = {
-      applied_at: new Date(values.applied_at).toISOString(),
+      applied_at: lawnLocalInputToISOString(values.applied_at),
       application_method: values.application_method,
       // Only one branch is sent. The API rejects a liquid payload that carries
       // per-treatment rates or an area, rather than quietly ignoring them.

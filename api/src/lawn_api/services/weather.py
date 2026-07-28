@@ -16,6 +16,7 @@ from lawn_api.models.entities import (
     WeatherForecast,
     WeatherObservation,
 )
+from lawn_api.services.localtime import CENTRAL
 
 DEFAULT_LATITUDE = 39.0473
 DEFAULT_LONGITUDE = -95.6752
@@ -105,11 +106,9 @@ def _hourly_lookup(payload: dict[str, Any], timestamp: datetime, key: str) -> fl
     if not times or not values:
         return None
 
-    # Open-Meteo returns RFC3339-ish UTC timestamps (without Z in some cases).
     target = timestamp.replace(minute=0, second=0, microsecond=0)
     for idx, raw_time in enumerate(times):
-        hourly_time = datetime.fromisoformat(raw_time).replace(tzinfo=UTC)
-        if hourly_time == target:
+        if _to_utc(raw_time) == target:
             return values[idx]
     return None
 
@@ -122,7 +121,8 @@ async def _get_coordinates(db: AsyncSession) -> tuple[float, float]:
 
 
 def _to_utc(value: str) -> datetime:
-    return datetime.fromisoformat(value).replace(tzinfo=UTC)
+    """Open-Meteo times are offset-less wall clock in the requested zone (Central)."""
+    return datetime.fromisoformat(value).replace(tzinfo=CENTRAL).astimezone(UTC)
 
 
 async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
@@ -205,7 +205,9 @@ async def refresh_weather(db: AsyncSession) -> dict[str, Any]:
 
     forecast_rows = []
     for idx, day in enumerate(days):
-        forecast_for = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=UTC)
+        # Anchor each forecast day at local noon so forecast_for_day (the
+        # Central-date generated column) lands on the intended day.
+        forecast_for = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=CENTRAL)
         weather_code = weather_codes[idx] if idx < len(weather_codes) else None
         conditions = WEATHER_CODE_TO_CONDITIONS.get(weather_code, str(weather_code))
 

@@ -7,7 +7,6 @@ the UI can render as "--" rather than raising.
 """
 
 from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,8 +22,7 @@ from lawn_api.models.entities import (
     WeatherObservation,
 )
 from lawn_api.services import settings as app_settings
-
-CENTRAL = ZoneInfo("America/Chicago")
+from lawn_api.services.localtime import local_days_between, local_today
 
 
 def _green_up_start(today: date, month_day: str) -> date:
@@ -41,7 +39,7 @@ def _green_up_start(today: date, month_day: str) -> date:
 
 async def gdd_accumulation(db: AsyncSession, now: datetime) -> dict:
     """Season-to-date GDD (base 50) since green-up, plus the latest day's value."""
-    today = now.astimezone(CENTRAL).date()
+    today = local_today(now)
     month_day = await app_settings.get_str(db, app_settings.GDD_GREEN_UP_MONTH_DAY, "03-15")
     green_up = _green_up_start(today, month_day)
 
@@ -72,7 +70,7 @@ async def gdd_accumulation(db: AsyncSession, now: datetime) -> dict:
 
 
 def _days_since(latest_dt: datetime | None, now: datetime) -> int | None:
-    return None if latest_dt is None else (now - latest_dt).days
+    return None if latest_dt is None else local_days_between(latest_dt, now)
 
 
 async def _last_treatment_with_type_prefix(db: AsyncSession, prefix: str) -> datetime | None:

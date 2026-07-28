@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bell } from "lucide-react";
 
 import { listReminders } from "@/lib/api";
+import { LAWN_TIME_ZONE } from "@/lib/datetime";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -35,10 +36,11 @@ function formatDate(dateStr: string) {
 }
 
 function isOverdue(dateStr: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d) < today;
+  // Server component on a UTC clock: "today" must be the lawn's calendar day,
+  // or every reminder due today reads as overdue from 7 PM Central onward.
+  // en-CA renders YYYY-MM-DD, so ISO date strings compare lexically.
+  const lawnToday = new Intl.DateTimeFormat("en-CA", { timeZone: LAWN_TIME_ZONE }).format(new Date());
+  return dateStr < lawnToday;
 }
 
 export default async function RemindersPage() {

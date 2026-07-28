@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lawn_api.models.entities import IrrigationEvent, IrrigationZone, WeatherDaily
+from lawn_api.services.localtime import local_today
 
 WINDOWS = (7, 14, 30)
 TURF = "turf"
@@ -57,7 +58,7 @@ async def compute_water_balance(db: AsyncSession, now: datetime) -> dict:
     windows: dict[str, dict] = {}
     for days in WINDOWS:
         since_dt = now - timedelta(days=days)
-        since_date = since_dt.date()
+        since_date = local_today(since_dt)
 
         rainfall = await _rainfall_in(db, since_date)
         zone_inches = await _turf_zone_inches(db, since_dt)

@@ -25,8 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lawn_api.models.entities import CulturalPractice, Reminder, WeatherObservation
 from lawn_api.services import settings as app_settings
-
-CENTRAL = ZoneInfo("America/Chicago")
+from lawn_api.services.localtime import local_days_between, local_today
 
 # Stable, machine-matchable tags. Kept terse and appended to the human text.
 TAG_MOW = "[rule:mow-overdue]"
@@ -78,7 +77,7 @@ async def _days_since_mow(db: AsyncSession, now: datetime) -> int | None:
             select(func.max(CulturalPractice.performed_at)).where(CulturalPractice.practice_type == "mow")
         )
     ).scalar_one_or_none()
-    return None if last is None else (now - last).days
+    return None if last is None else local_days_between(last, now)
 
 
 def _season_window(today: date, start_md: str, end_md: str) -> bool:
@@ -100,7 +99,7 @@ async def _create(db: AsyncSession, reminder_type: str, description: str, due: d
 async def evaluate_reminder_rules(db: AsyncSession, now: datetime | None = None) -> list[Reminder]:
     """Create reminders for any rule whose condition holds and isn't already open."""
     now = now or datetime.now(tz=ZoneInfo("UTC"))
-    today = now.astimezone(CENTRAL).date()
+    today = local_today(now)
     created: list[Reminder] = []
 
     # --- Mow overdue -------------------------------------------------------

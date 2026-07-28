@@ -61,11 +61,16 @@ All valid values for each column live in
 model constraints and pydantic Literals source from these tuples, ensuring
 they are always in sync.
 
-### All timestamps are UTC (timestamptz)
+### All timestamps are UTC (timestamptz); all calendar logic is lawn-local
 
 Every `TIMESTAMP` column uses `TIMESTAMP WITH TIME ZONE`.  The application
-writes UTC.  The single timezone-aware rendering exception is
-`weather_forecast.forecast_for_day` (see below).
+writes UTC.  Anything calendar-shaped — "today", "days since", daily weather
+buckets, `DATE` columns — is computed on **America/Chicago** dates via
+`api/src/lawn_api/services/localtime.py` (the web equivalent is
+`web/src/lib/datetime.ts` / `LAWN_TIME_ZONE`).  Never floor a raw UTC
+timedelta with `.days` to count days between events: an evening application is
+less than 24 hours old the next morning, so it reads as "today".
+`weather_forecast.forecast_for_day` (see below) applies the same zone in SQL.
 
 ### Singleton guard — `lawn_profile`
 

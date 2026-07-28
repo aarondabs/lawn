@@ -7,12 +7,18 @@ OPENMETEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 OPENMETEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 OPENMETEO_SOURCE = "openmeteo"
 
+# Daily blocks (highs/lows/GDD/precip sums) are bucketed on calendar days in the
+# requested zone, so ask for lawn-local days, not UTC days. All returned times
+# are then wall-clock in this zone with no offset -- weather.py parses them
+# accordingly.
+OPENMETEO_TIMEZONE = "America/Chicago"
+
 
 async def fetch_openmeteo_weather(latitude: float, longitude: float) -> dict[str, Any]:
     params = {
         "latitude": latitude,
         "longitude": longitude,
-        "timezone": "UTC",
+        "timezone": OPENMETEO_TIMEZONE,
         "past_days": 7,
         "forecast_days": 10,
         "current": ("temperature_2m,relative_humidity_2m,dew_point_2m,wind_speed_10m,wind_gusts_10m,precipitation"),
@@ -44,7 +50,7 @@ async def fetch_openmeteo_archive(
     params = {
         "latitude": latitude,
         "longitude": longitude,
-        "timezone": "UTC",
+        "timezone": OPENMETEO_TIMEZONE,
         "start_date": start_date,
         "end_date": end_date,
         "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
