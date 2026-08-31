@@ -109,3 +109,9 @@ IRRIGATION_EVENT_SOURCES = (
 )
 
 REMINDER_TYPES = ("treatment", "cultural", "check", "other")
+
+# Assistant conversations. A briefing is a scheduled, assistant-initiated
+# conversation the operator can continue as normal chat; the kind exists so the
+# UI can filter briefings out of the chat list.
+ASSISTANT_CONVERSATION_KINDS = ("chat", "briefing")
+ASSISTANT_MESSAGE_ROLES = ("user", "assistant")

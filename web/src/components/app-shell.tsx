@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FlaskConical, Bell, Home, Settings, Shovel, Sprout, TestTube, Tractor, Wrench } from "lucide-react";
+import { FlaskConical, Bell, Home, Settings, Shovel, Sparkles, Sprout, TestTube, Tractor, Wrench } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { QuickLogFab } from "@/components/quick-log-fab";
@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
+  { href: "/assistant", label: "Assistant", icon: Sparkles },
   { href: "/treatments", label: "Treatments", icon: FlaskConical },
   { href: "/cultural", label: "Cultural", icon: Shovel },
   { href: "/reminders", label: "Reminders", icon: Bell },

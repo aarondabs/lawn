@@ -626,3 +626,49 @@ export async function snoozeReminder(id: string, new_due_date: string) {
 export async function deleteReminder(id: string) {
   return apiRequest<void>(`/api/v1/reminders/${id}`, { method: "DELETE" });
 }
+// ─── Assistant ────────────────────────────────────────────────────────────────
+
+export type AssistantConversationKind = "chat" | "briefing";
+
+export type AssistantMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+};
+
+export type AssistantConversationSummary = {
+  id: string;
+  kind: AssistantConversationKind;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssistantConversation = AssistantConversationSummary & {
+  messages: AssistantMessage[];
+};
+
+export type AssistantChatResponse = {
+  conversation_id: string;
+  reply: AssistantMessage;
+  /** True when the answer hit the output-token limit mid-thought. */
+  truncated: boolean;
+};
+
+export async function sendAssistantChat(body: { conversation_id?: string | null; message: string }) {
+  return apiRequest<AssistantChatResponse>("/api/v1/assistant/chat", { method: "POST", body });
+}
+
+export async function listAssistantConversations(kind?: AssistantConversationKind) {
+  const params = kind ? `?kind=${kind}` : "";
+  return apiRequest<AssistantConversationSummary[]>(`/api/v1/assistant/conversations${params}`);
+}
+
+export async function getAssistantConversation(id: string) {
+  return apiRequest<AssistantConversation>(`/api/v1/assistant/conversations/${id}`);
+}
+
+export async function deleteAssistantConversation(id: string) {
+  return apiRequest<void>(`/api/v1/assistant/conversations/${id}`, { method: "DELETE" });
+}

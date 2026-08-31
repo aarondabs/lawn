@@ -12,12 +12,14 @@ Convention notes:
 """
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
     Computed,
     Date,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     Numeric,
@@ -33,6 +35,8 @@ from lawn_api.db import Base
 from lawn_api.models.constants import (
     AMOUNT_UNITS,
     APPLICATION_METHODS,
+    ASSISTANT_CONVERSATION_KINDS,
+    ASSISTANT_MESSAGE_ROLES,
     CALIBRATED_RATE_UNITS,
     CULTURAL_PRACTICE_TYPES,
     EQUIPMENT_TYPES,
@@ -709,6 +713,78 @@ class AppSetting(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+# ---------------------------------------------------------------------------
+# assistant_conversation / assistant_message - Phase 3 chat persistence
+# ---------------------------------------------------------------------------
+
+
+class AssistantConversation(Base):
+    """One assistant conversation: an operator-started chat, or a scheduled
+    briefing (kind='briefing') the operator can continue as chat. The kind lets
+    the conversation list filter briefings without a second table."""
+
+    __tablename__ = "assistant_conversation"
+    __table_args__ = (
+        CheckConstraint(
+            f"kind IN ({_sql_in(ASSISTANT_CONVERSATION_KINDS)})",
+            name="assistant_conversation_kind_check",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    kind = Column(Text, nullable=False, server_default=text("'chat'"))
+    title = Column(Text, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    messages = relationship(
+        "AssistantMessage",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="AssistantMessage.seq",
+    )
+
+
+class AssistantMessage(Base):
+    """One turn in a conversation. Content is the rendered text only -- the
+    context bundle and system prompt are rebuilt per request, never stored.
+    Token counts are recorded on assistant turns for cost visibility."""
+
+    __tablename__ = "assistant_message"
+    __table_args__ = (
+        CheckConstraint(
+            f"role IN ({_sql_in(ASSISTANT_MESSAGE_ROLES)})",
+            name="assistant_message_role_check",
+        ),
+        Index("ix_assistant_message_conversation_seq", "conversation_id", "seq"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    # Monotonic insertion order. created_at cannot order turns: Postgres now()
+    # is transaction start time, so a user message and the assistant reply
+    # committed together carry identical timestamps.
+    seq = Column(BigInteger, Identity(always=True), nullable=False)
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("assistant_conversation.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role = Column(Text, nullable=False)
+    content = Column(Text, nullable=False)
+    input_tokens = Column(Integer, nullable=True)
+    output_tokens = Column(Integer, nullable=True)
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    conversation = relationship("AssistantConversation", back_populates="messages")
 
 
 # ---------------------------------------------------------------------------
