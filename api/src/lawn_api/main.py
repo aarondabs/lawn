@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -22,6 +23,11 @@ from lawn_api.routers import (
     treatment_router,
 )
 from lawn_api.services.scheduler_jobs import register_jobs
+
+# Uvicorn configures only its own loggers; without a root handler at INFO the
+# app's operational logging — notably the per-call LLM token usage that cost
+# monitoring depends on — is silently dropped. No-op if a handler exists.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
 @asynccontextmanager
