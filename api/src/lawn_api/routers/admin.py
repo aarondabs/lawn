@@ -4,10 +4,20 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lawn_api.db import get_db
+from lawn_api.services.briefing import run_briefing
 from lawn_api.services.reminder_rules import evaluate_reminder_rules
 from lawn_api.services.weather import refresh_weather
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+@router.post("/run-briefing")
+async def run_briefing_endpoint(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Fire the assistant briefing now (bypasses the frequency setting).
+
+    Makes a real, billable model call and a real ntfy push.
+    """
+    return await run_briefing(db, force=True)
 
 
 @router.post("/refresh-weather")

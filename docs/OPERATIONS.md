@@ -114,8 +114,15 @@ The API runs an in-process APScheduler (`main.py` lifespan):
   runs and schedule skips, idempotent by `rachio_event_id`. **This is the primary
   irrigation source** — webhooks are deferred (they need a public endpoint; see
   the completion report).
-- **Reminder check** — daily. First runs the reminder *rules*
+- **Reminder check** — daily 08:00 Central. First runs the reminder *rules*
   (`services/reminder_rules`), then notifies via ntfy about anything due.
+- **Assistant briefing** — daily at `briefing_hour_local` (default 06:00 Central).
+  Generates the irrigation-first briefing, pushes it to the briefings ntfy topic, and
+  persists it as a `kind='briefing'` conversation. Frequency is checked on every run
+  (see the AI assistant section); the hour is read at startup, so changing it needs an
+  api restart.
+
+Job bodies live in `services/scheduler_jobs.py`; `main.py`'s lifespan only registers them.
 
 Manual triggers (all `POST`, no body):
 
@@ -124,6 +131,7 @@ Manual triggers (all `POST`, no body):
 | `/api/v1/admin/refresh-weather` | Run the weather refresh now |
 | `/api/v1/admin/poll-rachio?lookback_hours=N` | Poll Rachio now (default 168h) |
 | `/api/v1/admin/evaluate-reminders` | Run the reminder rules now |
+| `/api/v1/admin/run-briefing` | Fire the assistant briefing now (bypasses frequency; real API call + push) |
 
 **GDD backfill** (one-time, from a Python shell in the `lawn-api` container):
 
@@ -169,7 +177,28 @@ docker compose exec api python -m lawn_api.scripts.assistant_smoke \
 
 The system prompt is a versioned file: `api/src/lawn_api/prompts/assistant_system.md`. It is
 deliberately generic — the lawn's specifics (grass type, location, area) come from the
-context bundle, so prompt edits are about *behavior*, not data.
+context bundle, so prompt edits are about *behavior*, not data. The briefing's instructions
+are `prompts/briefing_prompt.md`.
+
+**Briefing settings** (app_setting rows; defaults apply when the row is absent):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `briefing_frequency` | `daily` | `daily` \| `weekly` (Mondays) \| `off`. Read on every run — no restart. |
+| `briefing_hour_local` | `6` | Central hour the job fires. Read at startup — restart api to apply. |
+
+To change one (example — downgrade to weekly):
+
+```sh
+docker exec lawn-db psql -U lawn -d lawn -c \
+  "INSERT INTO app_setting (key, value, description) VALUES ('briefing_frequency', '\"weekly\"'::jsonb, 'Assistant briefing cadence: daily | weekly | off')
+   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+```
+
+Briefings push to their **own ntfy topic** (`NTFY_BRIEFINGS_TOPIC`, default `lawn-briefings`)
+so they can be muted on-device independently of reminder alerts — subscribe to the topic in
+the ntfy app to receive them. Each briefing is also saved as a `briefing` conversation in the
+Assistant page, where it can be continued as a normal chat.
 
 ## CSV export
 

@@ -8,10 +8,10 @@ This app depends on baseline services managed outside this repository.
 - DNS entry for the chosen app hostname resolving to the homelab server.
 - External Docker network named `homelab`.
 - **`ntfy` push service, reachable as `http://ntfy` on the `homelab` network.** The API posts
-  reminder alerts to it — `api/src/lawn_api/services/notifications.py` targets
-  `http://ntfy/lawn-alerts`. This is currently **hardcoded, not env-configurable**; if the ntfy
-  service name or topic ever changes, that file must change too. (Candidate for an env var —
-  see the app backlog.)
+  reminder alerts to `<NTFY_URL>/<NTFY_ALERTS_TOPIC>` (default `http://ntfy/lawn-alerts`) and
+  assistant briefings to `<NTFY_URL>/<NTFY_BRIEFINGS_TOPIC>` (default `http://ntfy/lawn-briefings`).
+  All three are env-configurable via `.env` (formerly hardcoded). Subscribe to both topics on
+  the phone to receive both streams.
 
 ## Expected Routing
 

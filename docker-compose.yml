@@ -47,6 +47,10 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
       LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-8192}
+      # ntfy push: base URL + one topic per stream (mutable independently).
+      NTFY_URL: ${NTFY_URL:-http://ntfy}
+      NTFY_ALERTS_TOPIC: ${NTFY_ALERTS_TOPIC:-lawn-alerts}
+      NTFY_BRIEFINGS_TOPIC: ${NTFY_BRIEFINGS_TOPIC:-lawn-briefings}
     depends_on:
       db:
         condition: service_healthy

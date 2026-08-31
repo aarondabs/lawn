@@ -26,6 +26,11 @@ SOIL_TEMP_PREEMERGENT_F = "soil_temp_preemergent_f"
 SEASON_START_MONTH_DAY = "season_start_month_day"
 # Date GDD accumulation starts from each year (spring green-up).
 GDD_GREEN_UP_MONTH_DAY = "gdd_green_up_month_day"
+# Assistant briefing cadence: "daily" | "weekly" | "off". No seeded row -- the
+# default applies until the operator inserts one (see OPERATIONS.md).
+BRIEFING_FREQUENCY = "briefing_frequency"
+# Local hour (Central) the briefing fires. Read at scheduler startup.
+BRIEFING_HOUR_LOCAL = "briefing_hour_local"
 
 
 async def get_all(db: AsyncSession) -> dict[str, object]:
