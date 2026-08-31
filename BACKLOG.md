@@ -77,3 +77,15 @@ column is harmless, and a manual floor may still be wanted alongside schedule-aw
 - Hyperlocal weather station integration (Tempest, Ambient, Davis).
 - Equipment-aware spray planning (AI computes tank-mix amounts from sprayer calibration).
 - External access via Cloudflare Tunnel (deferred from Phase 1).
+
+### API credit spend estimate in the briefing (Task 5 rider) — added 2026-08-31
+- The assistant already persists per-message `input_tokens`/`output_tokens`. A deterministic
+  rule (the `applications_remaining` pattern applied to tokens) can estimate spend since a
+  recorded purchase anchor (date + dollars, app_setting) and add a briefing status line, plus a
+  reminder when the estimate crosses a threshold (~$1 left).
+- Honest limitation: Anthropic exposes no credit-balance API, so this is a local estimate
+  anchored to what was bought — good for "time to top up," not accounting.
+- Interim protection shipped 2026-08-31: a failed briefing pushes "Lawn briefing failed" to the
+  alerts topic, so exhausted credits are audible rather than a silently missing briefing.
+- If manual top-ups ever annoy: auto-reload **plus** a dedicated Console workspace with a
+  monthly spend limit (platform-enforced cap replaces the prepaid-balance cap). Not before.

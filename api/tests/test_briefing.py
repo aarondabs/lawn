@@ -96,7 +96,7 @@ async def test_weekly_fires_only_on_monday(
 
 
 @pytest.mark.asyncio
-async def test_provider_failure_sends_nothing(
+async def test_provider_failure_notifies_alerts_and_persists_nothing(
     client: AsyncClient, ntfy_calls: list[dict], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def boom():
@@ -106,7 +106,14 @@ async def test_provider_failure_sends_nothing(
     result = await _run()
     assert result["status"] == "error"
     assert "not configured" in result["reason"]
-    assert ntfy_calls == []
+
+    # The failure itself is pushed — to the alerts topic, not the briefings one.
+    assert len(ntfy_calls) == 1
+    push = ntfy_calls[0]
+    assert push["title"] == "Lawn briefing failed"
+    assert push.get("topic") is None  # default topic = alerts
+    assert "not configured" in push["message"]
+
     briefings = (await client.get("/api/v1/assistant/conversations")).json()
     assert briefings == []
 

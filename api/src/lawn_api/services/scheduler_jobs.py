@@ -96,7 +96,16 @@ async def scheduled_briefing() -> None:
             result = await run_briefing(session)
         logger.info("scheduled briefing: %s", result)
     except Exception:
+        # run_briefing notifies on model failures itself; this catches the
+        # unexpected (DB down, bundle bug) so the operator still hears about it.
         logger.exception("Scheduled briefing failed")
+        await asyncio.to_thread(
+            post_ntfy,
+            title="Lawn briefing crashed",
+            message="Unexpected error — see `docker logs lawn-api`.",
+            priority="high",
+            tags="warning",
+        )
 
 
 async def register_jobs(scheduler: AsyncIOScheduler) -> None:

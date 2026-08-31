@@ -67,6 +67,16 @@ async def run_briefing(db: AsyncSession, now: datetime | None = None, force: boo
         )
     except LLMError as exc:
         logger.error("briefing failed: %s", exc)
+        # A briefing that fails silently just doesn't arrive — make it audible
+        # on the alerts topic. The likely cause is exhausted API credits.
+        await asyncio.to_thread(
+            post_ntfy,
+            title="Lawn briefing failed",
+            message=f"{exc}\nLikely API credits or connectivity. Top up at console.anthropic.com, "
+            "then retry with POST /api/v1/admin/run-briefing.",
+            priority="high",
+            tags="warning",
+        )
         return {"status": "error", "reason": str(exc)}
 
     conversation = AssistantConversation(kind="briefing", title=f"Briefing — {today.isoformat()}")

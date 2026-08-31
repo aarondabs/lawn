@@ -200,6 +200,12 @@ so they can be muted on-device independently of reminder alerts — subscribe to
 the ntfy app to receive them. Each briefing is also saved as a `briefing` conversation in the
 Assistant page, where it can be continued as a normal chat.
 
+**A failed briefing is audible**: model-call failures (typically exhausted API credits) push
+"Lawn briefing failed" to the *alerts* topic with the reason; unexpected crashes push "Lawn
+briefing crashed". If you get one, top up credits at console.anthropic.com and retry with
+`POST /api/v1/admin/run-briefing`. Credits are prepaid with **no auto-reload by design** — the
+balance is the spending cap.
+
 ## CSV export
 
 `GET /api/v1/export/{treatments,cultural-practices,irrigation-events,products,soil-tests,weather-daily}.csv`.
