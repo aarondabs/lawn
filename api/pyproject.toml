@@ -12,6 +12,7 @@ dependencies = [
   "pydantic-settings",
   "httpx",
   "apscheduler",
+  "anthropic",
 ]
 
 [project.optional-dependencies]

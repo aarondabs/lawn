@@ -8,5 +8,12 @@ class Settings(BaseSettings):
     database_url: str
     rachio_api_key: str | None = None
 
+    # Phase 3 assistant (integrations/llm.py). The model is config, not code --
+    # verify the current Sonnet model string when changing it. Defaults are
+    # mirrored in docker-compose.yml's ${VAR:-default} fallbacks.
+    anthropic_api_key: str | None = None
+    llm_model: str = "claude-sonnet-5"
+    llm_max_tokens: int = 2048
+
 
 settings = Settings()
