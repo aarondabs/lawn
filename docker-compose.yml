@@ -43,6 +43,10 @@ services:
       APP_PORT: ${API_PORT}
       DATABASE_URL: ${DATABASE_URL}
       RACHIO_API_KEY: ${RACHIO_API_KEY}
+      # Phase 3 assistant. Defaults mirror config.py; empty key = assistant off.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-2048}
     depends_on:
       db:
         condition: service_healthy

@@ -137,6 +137,40 @@ async with AsyncSessionLocal() as db:
 This pulls daily highs/lows from Open-Meteo's **archive API** (a different host
 than the forecast endpoint) to give GDD a full season of history. Idempotent.
 
+## AI assistant (Phase 3)
+
+Configuration (all via `.env`; recreate the api container with `./ops/reload-env.sh` after
+changing any of them):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | *(empty)* | Required for the assistant. Empty = assistant disabled; surfaces report "assistant not configured". |
+| `LLM_MODEL` | `claude-sonnet-5` | Model ID sent to the API. Verify the current model string before changing. |
+| `LLM_MAX_TOKENS` | `2048` | Response cap per call. |
+
+**Cost monitoring**: every call logs one line — `LLM call: model=… input=… output=…
+cache_read=… cache_write=…` — from `integrations/llm.py`, and every bundle build logs its
+size. Check spend drivers with:
+
+```sh
+docker logs lawn-api 2>&1 | grep "LLM call"
+```
+
+Expected scale: the full context bundle is ~12–15k input tokens per call; a daily briefing
+plus a handful of chats lands in single-digit dollars per month. Materially more than that
+warrants a look at the logs.
+
+**End-to-end smoke test** (makes one real, billable API call):
+
+```sh
+docker compose exec api python -m lawn_api.scripts.assistant_smoke \
+  "When did I last apply nitrogen, and how much can I still apply this month?"
+```
+
+The system prompt is a versioned file: `api/src/lawn_api/prompts/assistant_system.md`. It is
+deliberately generic — the lawn's specifics (grass type, location, area) come from the
+context bundle, so prompt edits are about *behavior*, not data.
+
 ## CSV export
 
 `GET /api/v1/export/{treatments,cultural-practices,irrigation-events,products,soil-tests,weather-daily}.csv`.

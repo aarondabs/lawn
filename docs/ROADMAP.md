@@ -26,8 +26,16 @@
 - Expand integration coverage and idempotency guarantees.
 - Improve operational runbooks and backup/restore paths.
 
-## Phase 3: Assistant Features (Future)
+## Phase 3: AI Assistant (In Progress)
 
-- Introduce recommendation workflows based on recorded history.
-- Add explainable reasoning over weather, irrigation, and treatment data.
-- Keep human approval as the default for any recommended action.
+- Read-only assistant: full-context Q&A chat and a scheduled briefing whose centerpiece is an
+  irrigation recommendation.
+- Recommendations are **agronomic reasoning applied to precisely-computed current state** (GDD,
+  water balance, soil temperature, guardrail findings) plus product labels. Recorded history is
+  constraint and corroboration — "have I done this, how recently, am I near a cap?" — not a
+  training set; one partial season is not history to learn from.
+- Deterministic services stay authoritative: the assistant reads guardrail findings, water
+  balance, and coverage math from the API and never recomputes them. `cannot_evaluate` findings
+  are surfaced as-is, never smoothed over.
+- Human approval stays the default: the assistant recommends in prose; the operator logs
+  everything manually.
