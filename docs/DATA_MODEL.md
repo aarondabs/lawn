@@ -27,6 +27,8 @@ Schema reference for the Lawn API. All decisions trace back to
 | `irrigation_skip` | regular | UUID (`id`); unique `rachio_event_id` |
 | `app_setting` | regular | `key` (text) |
 | `reminder` | regular | UUID (`id`) |
+| `assistant_conversation` | regular | UUID (`id`) |
+| `assistant_message` | regular | UUID (`id`); monotonic `seq` identity |
 | `weather_observation` | **hypertable** | `(observed_at, source)` |
 | `irrigation_event` | **hypertable** | `(started_at, zone_id)` |
 
@@ -294,6 +296,14 @@ Enforced unique: `UNIQUE (zone_number)`.
 | `5a1f83f2d8b4` | `add_zone_category_to_irrigation_zone` | Add `zone_category` TEXT column (turf, trees_shrubs, ornamental, inactive) to `irrigation_zone` |
 | `6c3f4c8be7ab` | `add_is_enabled_to_irrigation_zone` | Add `is_enabled` BOOLEAN (default true) to `irrigation_zone` |
 | `f3a91b2e8c04` | `fix_irrigation_event_source_constraint` | Fix `source` CHECK constraint on `irrigation_event` |
+| `a1c4e7b92f03` | `phase_2a_liquid_treatments` | `tank_fill` + `fill_product`; liquid treatment schema |
+| `b2d5f8a13c47` | `application_method_not_null` | Backfill + require `treatment.application_method` |
+| `c3e8b41d92f6` | `normalize_jsonb_nulls` | Repo-wide JSONB `none_as_null` normalization |
+| `d4f1a67c8e23` | `app_settings_and_guardrail_fields` | `app_setting` table + `product` guardrail columns |
+| `e5a2c9f47b18` | `seed_season_settings` | Seed season/nitrogen threshold settings |
+| `f6b3d18a2c94` | `weather_daily_and_gdd` | `weather_daily` table; drop bogus observation GDD column |
+| `a7c4e91b52d8` | `irrigation_skip` | `irrigation_skip` table for Rachio schedule skips |
+| `b3d7f2a91c45` | `assistant_conversations` | Phase 3: `assistant_conversation` + `assistant_message` |
 
 To run all migrations:
 
@@ -391,3 +401,23 @@ Nitrogen and per-product amount math reuse `services/inventory` and
 consistently across inventory decrement, guardrails, and CSV export. Unit
 conversion never crosses the volume/weight boundary without a density (it raises;
 callers surface it).
+
+---
+
+## Phase 3 additions (assistant)
+
+### `assistant_conversation` and `assistant_message`
+
+Chat persistence for the read-only assistant (migration `b3d7f2a91c45`).
+
+- `assistant_conversation.kind` — `'chat' | 'briefing'` (CHECK constraint). A briefing is a
+  scheduled, assistant-initiated conversation; the kind lets the UI filter briefings out of the
+  chat list while keeping them continuable as normal conversations.
+- `assistant_message.seq` — `BIGINT GENERATED ALWAYS AS IDENTITY`, the ordering column.
+  `created_at` cannot order turns: Postgres `now()` is transaction start time, so a user message
+  and the assistant reply committed together carry identical timestamps. Index
+  `(conversation_id, seq)` serves both the thread view and the history window.
+- Messages store rendered text only. The system prompt and context bundle are rebuilt per
+  request (`services/context_bundle.py`) and never persisted. `input_tokens` / `output_tokens`
+  are recorded on assistant turns for cost visibility.
+- Deleting a conversation cascades to its messages.

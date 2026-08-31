@@ -210,7 +210,13 @@ Use the test helper — do not run pytest directly on the host:
 ./ops/test.sh
 ```
 
-This runs pytest inside the API container against a dedicated test database (`lawn_test`), not the live database. The test DB must be initialized first if it doesn't exist:
+This runs pytest inside the API container against a dedicated test database (`lawn_test`), then
+the web component tests (vitest + testing-library) inside the web container. `./ops/test.sh api`
+or `./ops/test.sh web` runs one half; extra pytest args (`-k`, `-x`, `-v`) imply an API-only run.
+After any `web/package.json` change, reinstall deps first:
+`docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps web npm install`.
+
+The test DB must be initialized first if it doesn't exist:
 
 ```sh
 ./ops/init-test-db.sh

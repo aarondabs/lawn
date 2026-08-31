@@ -8,6 +8,7 @@ from sqlalchemy import text
 from lawn_api.db import AsyncSessionLocal
 from lawn_api.routers import (
     admin_router,
+    assistant_router,
     cultural_practice_router,
     dashboard_router,
     equipment_router,
@@ -143,6 +144,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Lawn API", lifespan=lifespan)
 
 app.include_router(admin_router)
+app.include_router(assistant_router)
 app.include_router(dashboard_router)
 app.include_router(rachio_router)
 app.include_router(lawn_profile_router)

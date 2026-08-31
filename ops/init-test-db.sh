@@ -39,6 +39,10 @@ fi
 TEST_DATABASE_URL="postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${TEST_DB_NAME}"
 
 echo "Running migrations on $TEST_DB_NAME"
-docker exec -e DATABASE_URL="$TEST_DATABASE_URL" lawn-api alembic upgrade head
+# Use the source-mounted api-test container, not the deployed lawn-api image:
+# a migration must be testable here BEFORE it is ever baked into a deploy.
+cd "$ROOT_DIR"
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps \
+  -e DATABASE_URL="$TEST_DATABASE_URL" api-test python -m alembic upgrade head
 
 echo "Test DB ready: $TEST_DB_NAME"
