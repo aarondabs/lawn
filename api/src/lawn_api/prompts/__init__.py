@@ -13,3 +13,8 @@ from pathlib import Path
 @cache
 def load_system_prompt() -> str:
     return (Path(__file__).parent / "assistant_system.md").read_text(encoding="utf-8")
+
+
+@cache
+def load_briefing_prompt() -> str:
+    return (Path(__file__).parent / "briefing_prompt.md").read_text(encoding="utf-8")

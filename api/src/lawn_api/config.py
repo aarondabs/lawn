@@ -18,5 +18,11 @@ class Settings(BaseSettings):
     # mid-sentence on the first live call.
     llm_max_tokens: int = 8192
 
+    # ntfy push. Base URL + topic per stream: alerts (reminders) and briefings
+    # are separate topics so the operator can mute one without the other.
+    ntfy_url: str = "http://ntfy"
+    ntfy_alerts_topic: str = "lawn-alerts"
+    ntfy_briefings_topic: str = "lawn-briefings"
+
 
 settings = Settings()

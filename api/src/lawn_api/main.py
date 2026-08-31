@@ -1,4 +1,3 @@
-import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -22,118 +21,13 @@ from lawn_api.routers import (
     soil_test_router,
     treatment_router,
 )
-from lawn_api.services.notifications import post_ntfy
-from lawn_api.services.rachio import poll_rachio_events, should_schedule_rachio_polling
-from lawn_api.services.weather import refresh_weather
-
-logger = logging.getLogger(__name__)
+from lawn_api.services.scheduler_jobs import register_jobs
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     scheduler = AsyncIOScheduler(timezone="UTC")
-
-    async def scheduled_weather_refresh() -> None:
-        try:
-            async with AsyncSessionLocal() as session:
-                await refresh_weather(session)
-        except Exception:
-            logger.exception("Scheduled weather refresh failed")
-
-    async def scheduled_rachio_poll() -> None:
-        try:
-            async with AsyncSessionLocal() as session:
-                await poll_rachio_events(session)
-        except Exception:
-            logger.exception("Scheduled Rachio polling failed")
-
-    async def scheduled_reminder_check() -> None:
-        """Generate rule-based reminders, then notify about anything due."""
-        from datetime import UTC, datetime
-
-        from sqlalchemy import select
-
-        from lawn_api.models.entities import Reminder
-        from lawn_api.services.localtime import local_today
-        from lawn_api.services.reminder_rules import evaluate_reminder_rules
-
-        try:
-            # Create reminders from the rules first, so newly-triggered ones are
-            # included in the same run's notification.
-            async with AsyncSessionLocal() as session:
-                await evaluate_reminder_rules(session)
-
-            today = local_today(datetime.now(UTC))
-            async with AsyncSessionLocal() as session:
-                reminders = (
-                    (
-                        await session.execute(
-                            select(Reminder)
-                            .where(Reminder.completed.is_(False))
-                            .where(Reminder.due_date <= today)
-                            .order_by(Reminder.due_date.asc())
-                        )
-                    )
-                    .scalars()
-                    .all()
-                )
-
-            if not reminders:
-                return
-
-            overdue = [r for r in reminders if r.due_date < today]
-            due_today = [r for r in reminders if r.due_date == today]
-
-            lines = []
-            if due_today:
-                lines.append(f"Due today ({len(due_today)}):")
-                for r in due_today:
-                    lines.append(f"  \u2022 [{r.reminder_type}] {r.description}")
-            if overdue:
-                lines.append(f"Overdue ({len(overdue)}):")
-                for r in overdue:
-                    lines.append(f"  \u2022 [{r.reminder_type}] {r.description} (was {r.due_date})")
-
-            count = len(reminders)
-            title = f"{count} lawn reminder{'s' if count != 1 else ''} pending"
-            post_ntfy(title=title, message="\n".join(lines), priority="default", tags="seedling")
-        except Exception:
-            logger.exception("Scheduled reminder check failed")
-
-    scheduler.add_job(
-        scheduled_weather_refresh,
-        trigger="interval",
-        hours=6,
-        id="weather-refresh",
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1,
-    )
-
-    if await should_schedule_rachio_polling():
-        scheduler.add_job(
-            scheduled_rachio_poll,
-            trigger="interval",
-            hours=1,
-            id="rachio-poll",
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
-
-    # Daily reminder check at 8:00 AM local time (America/Chicago)
-    scheduler.add_job(
-        scheduled_reminder_check,
-        trigger="cron",
-        hour=8,
-        minute=0,
-        timezone="America/Chicago",
-        id="reminder-check",
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1,
-    )
-
+    await register_jobs(scheduler)
     scheduler.start()
     try:
         yield
