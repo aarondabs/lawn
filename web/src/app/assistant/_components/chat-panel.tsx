@@ -7,7 +7,7 @@ import { Loader2, MessageCirclePlus, Send, Sparkles, Trash2 } from "lucide-react
 
 import { sendChatMessage, removeConversation } from "@/app/actions/assistant";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -112,12 +112,12 @@ export function ChatPanel({ conversations, active, showKind }: ChatPanelProps) {
             {active?.title ?? "Read-only: it answers and recommends; you log."}
           </p>
         </div>
-        <Button asChild nativeButton={false} variant="outline" size="sm">
-          <Link href="/assistant">
-            <MessageCirclePlus className="mr-1 h-4 w-4" />
-            New
-          </Link>
-        </Button>
+        {/* Styled Links, not <Button asChild>: the asChild/render shim drops
+            the link's children when used from a client component here. */}
+        <Link href="/assistant" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+          <MessageCirclePlus className="mr-1 h-4 w-4" />
+          New
+        </Link>
       </div>
 
       <Card>
@@ -198,22 +198,20 @@ export function ChatPanel({ conversations, active, showKind }: ChatPanelProps) {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground">Recent</h2>
           <div className="flex gap-1">
-            <Button
-              asChild
-              nativeButton={false}
-              variant={showKind === "chat" ? "secondary" : "ghost"}
-              size="sm"
+            <Link
+              href="/assistant"
+              className={cn(buttonVariants({ variant: showKind === "chat" ? "secondary" : "ghost", size: "sm" }))}
             >
-              <Link href="/assistant">Chats</Link>
-            </Button>
-            <Button
-              asChild
-              nativeButton={false}
-              variant={showKind === "briefing" ? "secondary" : "ghost"}
-              size="sm"
+              Chats
+            </Link>
+            <Link
+              href="/assistant?kind=briefing"
+              className={cn(
+                buttonVariants({ variant: showKind === "briefing" ? "secondary" : "ghost", size: "sm" }),
+              )}
             >
-              <Link href="/assistant?kind=briefing">Briefings</Link>
-            </Button>
+              Briefings
+            </Link>
           </div>
         </div>
 

@@ -29,6 +29,38 @@ beforeEach(() => {
 });
 
 describe("ChatPanel", () => {
+  it("renders an existing conversation's transcript from props", () => {
+    render(
+      <ChatPanel
+        conversations={[]}
+        active={{
+          id: "conv-9",
+          kind: "chat",
+          title: "Watering question",
+          created_at: "2026-08-31T12:00:00Z",
+          updated_at: "2026-08-31T12:01:00Z",
+          messages: [
+            { id: "m1", role: "user", content: "Should I water this week?", created_at: "2026-08-31T12:00:00Z" },
+            { id: "m2", role: "assistant", content: "Yes — you are under budget.", created_at: "2026-08-31T12:01:00Z" },
+          ],
+        }}
+        showKind="chat"
+      />,
+    );
+
+    expect(screen.getByText("Should I water this week?")).toBeInTheDocument();
+    expect(screen.getByText("Yes — you are under budget.")).toBeInTheDocument();
+    expect(screen.getByText("Watering question")).toBeInTheDocument();
+    // Nav links must carry visible labels — the Button asChild/render shim
+    // once swallowed link children in this client component (Capture.PNG bug).
+    expect(screen.getByRole("link", { name: /New/ })).toHaveAttribute("href", "/assistant");
+    expect(screen.getByRole("link", { name: "Chats" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Briefings" })).toHaveAttribute(
+      "href",
+      "/assistant?kind=briefing",
+    );
+  });
+
   it("sends a typed message through the form and renders the reply", async () => {
     mockedSend.mockResolvedValue({
       ok: true,

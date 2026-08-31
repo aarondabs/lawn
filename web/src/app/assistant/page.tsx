@@ -15,5 +15,16 @@ export default async function AssistantPage({
   const conversations = await listAssistantConversations(showKind).catch(() => []);
   const active = c ? await getAssistantConversation(c).catch(() => null) : null;
 
-  return <ChatPanel conversations={conversations} active={active} showKind={showKind} />;
+  // Keyed by conversation: ChatPanel seeds its state from props on mount, and
+  // App Router preserves the mounted instance across ?c= navigations. Without
+  // the key, clicking a conversation re-renders the page but the panel keeps
+  // the previous (empty) transcript state.
+  return (
+    <ChatPanel
+      key={active?.id ?? "new"}
+      conversations={conversations}
+      active={active}
+      showKind={showKind}
+    />
+  );
 }
