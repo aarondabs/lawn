@@ -146,7 +146,7 @@ changing any of them):
 |---|---|---|
 | `ANTHROPIC_API_KEY` | *(empty)* | Required for the assistant. Empty = assistant disabled; surfaces report "assistant not configured". |
 | `LLM_MODEL` | `claude-sonnet-5` | Model ID sent to the API. Verify the current model string before changing. |
-| `LLM_MAX_TOKENS` | `2048` | Response cap per call. |
+| `LLM_MAX_TOKENS` | `8192` | Response cap per call. Adaptive thinking draws from this budget too — set it well above the visible answer length. |
 
 **Cost monitoring**: every call logs one line — `LLM call: model=… input=… output=…
 cache_read=… cache_write=…` — from `integrations/llm.py`, and every bundle build logs its

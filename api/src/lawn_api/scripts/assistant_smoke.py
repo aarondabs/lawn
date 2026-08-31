@@ -51,7 +51,8 @@ async def run(question: str) -> None:
     print(response.text)
     print(
         f"\n[usage] model={response.model} input={response.input_tokens} output={response.output_tokens} "
-        f"cache_read={response.cache_read_tokens} cache_write={response.cache_creation_tokens}",
+        f"cache_read={response.cache_read_tokens} cache_write={response.cache_creation_tokens} "
+        f"stop={response.stop_reason}{' TRUNCATED' if response.truncated else ''}",
         file=sys.stderr,
     )
 

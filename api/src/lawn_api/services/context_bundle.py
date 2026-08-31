@@ -70,9 +70,11 @@ class ContextBundle:
 
     @property
     def estimated_tokens(self) -> int:
-        # chars/4 is a rough heuristic; the real count comes back in API usage
-        # fields and is logged per call by integrations/llm.py.
-        return len(self.full) // 4
+        # Dense numeric CSV tokenizes at roughly 1.6 chars/token (measured on
+        # the first live call: 18.3k chars -> 11.7k tokens), nothing like prose's
+        # ~4. chars/2 keeps the estimate conservative; the real count comes back
+        # in API usage fields and is logged per call by integrations/llm.py.
+        return len(self.full) // 2
 
 
 def _fmt(value: object) -> str:

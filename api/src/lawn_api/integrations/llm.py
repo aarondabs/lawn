@@ -43,6 +43,13 @@ class LLMResponse:
     output_tokens: int
     cache_read_tokens: int
     cache_creation_tokens: int
+    stop_reason: str | None
+
+    @property
+    def truncated(self) -> bool:
+        """True when the answer was cut off by LLM_MAX_TOKENS. Surfaces should
+        say so rather than presenting a mid-sentence stop as a full answer."""
+        return self.stop_reason == "max_tokens"
 
 
 class LLMProvider(Protocol):
@@ -94,7 +101,11 @@ class AnthropicProvider:
             output_tokens=usage.output_tokens,
             cache_read_tokens=usage.cache_read_input_tokens or 0,
             cache_creation_tokens=usage.cache_creation_input_tokens or 0,
+            stop_reason=response.stop_reason,
         )
+        if result.truncated:
+            limit = max_tokens or self._max_tokens
+            logger.warning("LLM answer truncated at max_tokens=%d -- raise LLM_MAX_TOKENS", limit)
         logger.info(
             "LLM call: model=%s input=%d output=%d cache_read=%d cache_write=%d stop=%s",
             result.model,

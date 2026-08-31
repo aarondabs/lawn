@@ -13,7 +13,10 @@ class Settings(BaseSettings):
     # mirrored in docker-compose.yml's ${VAR:-default} fallbacks.
     anthropic_api_key: str | None = None
     llm_model: str = "claude-sonnet-5"
-    llm_max_tokens: int = 2048
+    # Response cap. Adaptive thinking spends from this budget too, so it must be
+    # well above the visible answer length -- 2048 truncated a real answer
+    # mid-sentence on the first live call.
+    llm_max_tokens: int = 8192
 
 
 settings = Settings()
