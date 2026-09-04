@@ -242,6 +242,13 @@ inches_applied NUMERIC(6,3)
   (`precip_rate_in_per_hr_snapshot`), not a FK back to `irrigation_zone`.
   Rationale: the zone's calibration may change; historical water amounts
   should reflect the calibration that was in effect at the time.
+- **Backfill exception (2026-09-04).** The snapshot rule protects real measurements. The
+  original rates were Rachio defaults (nozzle in/hr × efficiency: rotor 1.0 × 70% = 0.70,
+  fixed spray 1.5 × 80% = 1.20), never measured. Catch-cup tests put the rotor zones at
+  ~0.25 in/hr and the fixed-spray zone at 0.75 in/hr, so every event on zones 1–8
+  (177 rows stamped 0.70 → 0.25) and zone 10 (23 rows stamped 1.20 → 0.75) was rewritten
+  so history reflects what the sprinklers actually applied. Do this only when the old
+  snapshot was a placeholder, not a measurement.
 - Postgres generated columns cannot reference other tables, so the snapshot
   pattern is required.
 
